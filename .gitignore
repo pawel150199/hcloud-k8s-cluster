@@ -214,3 +214,10 @@ terragrunt-debug.tfvars.json
 ### VisualStudioCode Patch ###
 .history
 .ionide
+
+
+# Generated tf files
+backend.tf
+configuration.tf
+provider.tf
+terraform.tf
