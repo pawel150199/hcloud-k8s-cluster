@@ -1,0 +1,54 @@
+name: Pre commit check
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  pre-commit-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      - name: Download flake and black
+        run: |
+          pip install flake8
+          pip install black
+
+      - name: Download pre-commit hooks
+        run: |
+          pip install pre-commit
+          pre-commit install
+
+      - name: Download terraform
+        run: |
+          sudo apt-get update && sudo apt-get install -y gnupg software-properties-common
+          wget -O- https://apt.releases.hashicorp.com/gpg | \
+          gpg --dearmor | \
+          sudo tee /usr/share/keyrings/hashicorp-archive-keyring.gpg > /dev/null
+          gpg --no-default-keyring \
+          --keyring /usr/share/keyrings/hashicorp-archive-keyring.gpg \
+          --fingerprint
+          echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] \
+          https://apt.releases.hashicorp.com $(lsb_release -cs) main" | \
+          sudo tee /etc/apt/sources.list.d/hashicorp.list
+          sudo apt update
+          sudo apt-get install terraform
+
+      - name: Verify the terraform installation
+        run: |
+          terraform -help
+
+      - name: Run pre-commit hooks
+        run: |
+          pre-commit run --all-files
