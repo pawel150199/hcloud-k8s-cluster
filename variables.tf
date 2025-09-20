@@ -8,19 +8,19 @@ variable "private_network_ip_range" {
 variable "private_network_zone" {
   type        = string
   description = "Private network zone"
-  default     = "eu-central" 
+  default     = "eu-central"
 }
 
 variable "private_network_type" {
   type        = string
   description = "Private network type"
-  default     = "cloud" 
+  default     = "cloud"
 }
 
 variable "private_network_subnet_ip_range" {
   type        = string
   description = "Private network subnet IP range"
-  default     = "10.0.1.0/24"      
+  default     = "10.0.1.0/24"
 }
 
 # Kubernetes cluster node configuration variables
@@ -82,6 +82,11 @@ variable "master_nodes_number" {
 variable "worker_nodes_ssh_key" {
   type        = string
   description = ""
-  default     = 1
+  default     = null
 }
 
+variable "master_nodes_ssh_key" {
+  type        = string
+  description = ""
+  default     = null
+}

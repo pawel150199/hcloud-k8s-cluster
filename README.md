@@ -12,7 +12,7 @@ In hetzner community I found similar topic: https://community.hetzner.com/tutori
 3. https://alexslubsky.medium.com/setup-highly-available-kubernetus-cluster-with-hetzner-cloud-and-terraform-941a9e25ddf6 -> nice article about setting up k8s in hcloud.
 4. https://registry.terraform.io/providers/hetznercloud/hcloud/latest -> terraform provider for hetzner cloud
 5. https://community.hetzner.com/tutorials/setup-your-own-scalable-kubernetes-cluster -> tutorial how to setup your own scalable kubernetes cluster
-   
+
 
 ## Requirements
 1. Infrastructure have to be wrote in code - terraform.
