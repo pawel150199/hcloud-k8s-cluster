@@ -79,13 +79,19 @@ variable "master_nodes_number" {
 }
 
 # SSH keys configuration
-variable "worker_nodes_ssh_key" {
+variable "worker_nodes_ssh_pub_key" {
   type        = string
   description = ""
   default     = null
 }
 
-variable "master_nodes_ssh_key" {
+variable "worker_nodes_ssh_priv_key" {
+  type        = string
+  description = ""
+  default     = null
+}
+
+variable "master_nodes_ssh_pub_key" {
   type        = string
   description = ""
   default     = null
