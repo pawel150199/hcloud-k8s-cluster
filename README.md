@@ -1,10 +1,30 @@
 # Private K8S cluster
 
-The ideae behind this project is to create own private EKS cluster.
+The ideae behind this project is to create own private Kubernetes cluster.
 
-Cluster will be self managed and for the first creation it will be done by `k3s`
+Cluster will be self managed and for the first creation it will be done by `k3s`.
+In the future it can be extended to create the fully managed Kubernetes cluster using other tools like kubeadm or different tool for bootstrapping Kubernetes.
 
 In hetzner community I found similar topic: https://community.hetzner.com/tutorials/setup-your-own-scalable-kubernetes-cluster
+
+## Documentation
+
+Full module documentation lives in [`docs/`](docs/README.md), with Mermaid
+diagrams (architecture, network topology, bootstrap sequence) and a usage
+example. It can also be exported to PDF:
+
+```bash
+cd docs && make        # renders docs/pdf/*.pdf (requires md-to-pdf + internet)
+```
+
+| Page | Contents |
+| --- | --- |
+| [Overview](docs/01-overview.md) | What the module does, goals, scope |
+| [Architecture](docs/02-architecture.md) | Diagrams: components, network, bootstrap |
+| [Getting started](docs/03-getting-started.md) | Prerequisites, providers, state, first apply |
+| [Usage example](docs/04-usage-example.md) | Complete example configuration |
+| [Inputs & outputs](docs/05-inputs-and-outputs.md) | Variable and output reference |
+| [Operations](docs/06-operations.md) | kubeconfig, scaling, teardown |
 
 ## Usefull links
 1. https://github.com/solidnerd/terraform-k8s-hcloud -> setup cluster using terraform and kubeadm
@@ -13,20 +33,17 @@ In hetzner community I found similar topic: https://community.hetzner.com/tutori
 4. https://registry.terraform.io/providers/hetznercloud/hcloud/latest -> terraform provider for hetzner cloud
 5. https://community.hetzner.com/tutorials/setup-your-own-scalable-kubernetes-cluster -> tutorial how to setup your own scalable kubernetes cluster
 
-
 ## Requirements
-1. Infrastructure have to be wrote in code - terraform.
+1. Infrastructure have to be written in code - terraform.
 2. Kubernetes cluster have to be set up automatically.
-3. Kubernetes cluster will have one master node and 2 worker nodes.
-4. Kubernetes will be set up using k3s.
+3. Kubernetes cluster will have one master node and at least one worker node
 5. Deployments to the cluster will be done using GitOps.
 6. In K8S cluster will be deployed the full monitoring.
+7. Potentially scaling of the number of the nodes can be added.
 
 
 ## Thoughts
 1. In Hetzner cloud there is no native solution for storing terraform state file so I am storing it in AWS S3 service.
-2. The same with locks, I am using dynamodb for that.
-
 
 ## Command for copying the kubeconfig from master node
 ```bash

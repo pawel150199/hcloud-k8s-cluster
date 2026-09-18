@@ -11,7 +11,7 @@ module "hcloud_kubernetes_cluster" {
     node_enable_ipv4 = true
     node_enable_ipv6 = true
 
-    ssh_keys = [ "you_ssh_key" ]
+    ssh_keys = [ "your_ssh_key" ]
 
     master_nodes_ssh_pub_key  = "master_ssh_pub_key"
     worker_nodes_ssh_priv_key = "worker_ssh_priv_key"
