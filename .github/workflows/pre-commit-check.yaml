@@ -31,19 +31,7 @@ jobs:
           pre-commit install
 
       - name: Download terraform
-        run: |
-          sudo apt-get update && sudo apt-get install -y gnupg software-properties-common
-          wget -O- https://apt.releases.hashicorp.com/gpg | \
-          gpg --dearmor | \
-          sudo tee /usr/share/keyrings/hashicorp-archive-keyring.gpg > /dev/null
-          gpg --no-default-keyring \
-          --keyring /usr/share/keyrings/hashicorp-archive-keyring.gpg \
-          --fingerprint
-          echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] \
-          https://apt.releases.hashicorp.com $(lsb_release -cs) main" | \
-          sudo tee /etc/apt/sources.list.d/hashicorp.list
-          sudo apt update
-          sudo apt-get install terraform
+        uses: hashicorp/setup-terraform@v4
 
       - name: Verify the terraform installation
         run: |
@@ -61,15 +49,10 @@ jobs:
           terraform-docs --version
 
       - name: Install tflint
-        run: |
-          TFLINT_VERSION="v0.64.0"
-          BASE_URL="https://github.com/terraform-linters/tflint/releases/download"
-          ASSET="tflint_linux_amd64.zip"
-          curl -sSLo /tmp/tflint.zip \
-            "${BASE_URL}/${TFLINT_VERSION}/${ASSET}"
-          unzip -o /tmp/tflint.zip -d /tmp
-          sudo install -m 0755 /tmp/tflint /usr/local/bin/tflint
-          tflint --version
+        uses: terraform-linters/setup-tflint@v6
+        with:
+          tflint_version: v0.64.0
+          cache: true
 
       - name: Run pre-commit hooks
         run: |
