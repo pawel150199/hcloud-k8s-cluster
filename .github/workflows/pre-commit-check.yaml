@@ -62,8 +62,13 @@ jobs:
 
       - name: Install tflint
         run: |
-          TFLINT_INSTALL_URL="https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh"
-          curl -sSL "${TFLINT_INSTALL_URL}" | bash
+          TFLINT_VERSION="v0.64.0"
+          BASE_URL="https://github.com/terraform-linters/tflint/releases/download"
+          ASSET="tflint_linux_amd64.zip"
+          curl -sSLo /tmp/tflint.zip \
+            "${BASE_URL}/${TFLINT_VERSION}/${ASSET}"
+          unzip -o /tmp/tflint.zip -d /tmp
+          sudo install -m 0755 /tmp/tflint /usr/local/bin/tflint
           tflint --version
 
       - name: Run pre-commit hooks
