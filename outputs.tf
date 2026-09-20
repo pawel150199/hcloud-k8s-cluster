@@ -5,5 +5,5 @@ output "kubernetes_network_ip_range" {
 
 output "master_node_ip" {
   description = "Master Node IP Address"
-  value       = hcloud_server.master_nodes.ipv4_address
+  value       = hcloud_server.master_nodes[0].ipv4_address
 }

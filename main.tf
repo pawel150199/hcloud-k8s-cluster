@@ -4,8 +4,8 @@ resource "hcloud_network" "private_network" {
 }
 
 resource "hcloud_network_subnet" "private_network_subnet" {
-  type         = "cloud"
+  type         = var.private_network_type
   network_id   = hcloud_network.private_network.id
-  network_zone = "eu-central"
-  ip_range     = "10.0.1.0/24"
+  network_zone = var.private_network_zone
+  ip_range     = var.private_network_subnet_ip_range
 }

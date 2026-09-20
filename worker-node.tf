@@ -22,7 +22,7 @@ packages:
 users:
   - name: cluster
     ssh-authorized-keys:
-      - ssh-rsa ${var.worker_nodes_ssh_key}
+      - ssh-rsa ${var.worker_nodes_ssh_pub_key}
     sudo: ALL=(ALL) NOPASSWD:ALL
     shell: /bin/bash
 
@@ -42,5 +42,5 @@ runcmd:
   - curl -sfL https://get.k3s.io | K3S_URL=https://10.0.1.1:6443 K3S_TOKEN=$REMOTE_TOKEN INSTALL_K3S_EXEC="--kubelet-arg cloud-provider=external" sh -
 EOF
 
-  depends_on = [hcloud_network_subnet.private_network_subnet, hcloud_server.master_node]
+  depends_on = [hcloud_network_subnet.private_network_subnet, hcloud_server.master_nodes]
 }

@@ -81,18 +81,18 @@ variable "master_nodes_number" {
 # SSH keys configuration
 variable "worker_nodes_ssh_pub_key" {
   type        = string
-  description = ""
+  description = "Public SSH key deployed to worker nodes"
   default     = null
 }
 
 variable "worker_nodes_ssh_priv_key" {
   type        = string
-  description = ""
+  description = "Private SSH key used by master to reach worker nodes"
   default     = null
 }
 
 variable "master_nodes_ssh_pub_key" {
   type        = string
-  description = ""
+  description = "Public SSH key deployed to master nodes"
   default     = null
 }

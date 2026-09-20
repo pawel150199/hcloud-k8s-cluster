@@ -170,6 +170,9 @@ pyrightconfig.json
 # Local .terraform directories
 **/.terraform/*
 
+# Dependency lock files (this repo is a reusable module)
+.terraform.lock.hcl
+
 # .tfstate files
 *.tfstate
 *.tfstate.*

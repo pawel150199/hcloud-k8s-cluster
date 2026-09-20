@@ -49,3 +49,61 @@ cd docs && make        # renders docs/pdf/*.pdf (requires md-to-pdf + internet)
 ```bash
 scp -i <your_private_ssh_key> cluster@<master_node_public_ip>:/etc/rancher/k3s/k3s.yaml ~/.kube/config
 ```
+
+## Module reference
+
+<!-- BEGIN_TF_DOCS -->
+## Requirements
+
+| Name | Version |
+| ---- | ------- |
+| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.5.0 |
+| <a name="requirement_hcloud"></a> [hcloud](#requirement\_hcloud) | ~> 1.52 |
+
+## Providers
+
+| Name | Version |
+| ---- | ------- |
+| <a name="provider_hcloud"></a> [hcloud](#provider\_hcloud) | ~> 1.52 |
+
+## Modules
+
+No modules.
+
+## Resources
+
+| Name | Type |
+| ---- | ---- |
+| [hcloud_network.private_network](https://registry.terraform.io/providers/hetznercloud/hcloud/latest/docs/resources/network) | resource |
+| [hcloud_network_subnet.private_network_subnet](https://registry.terraform.io/providers/hetznercloud/hcloud/latest/docs/resources/network_subnet) | resource |
+| [hcloud_server.master_nodes](https://registry.terraform.io/providers/hetznercloud/hcloud/latest/docs/resources/server) | resource |
+| [hcloud_server.worker_nodes](https://registry.terraform.io/providers/hetznercloud/hcloud/latest/docs/resources/server) | resource |
+
+## Inputs
+
+| Name | Description | Type | Default | Required |
+| ---- | ----------- | ---- | ------- | :------: |
+| <a name="input_master_node_ip"></a> [master\_node\_ip](#input\_master\_node\_ip) | Kubernetes cluster master node ip | `string` | `"10.0.1.1"` | no |
+| <a name="input_master_nodes_number"></a> [master\_nodes\_number](#input\_master\_nodes\_number) | Number of master nodes in Cluster | `number` | `1` | no |
+| <a name="input_master_nodes_ssh_pub_key"></a> [master\_nodes\_ssh\_pub\_key](#input\_master\_nodes\_ssh\_pub\_key) | Public SSH key deployed to master nodes | `string` | `null` | no |
+| <a name="input_node_enable_ipv4"></a> [node\_enable\_ipv4](#input\_node\_enable\_ipv4) | Kubernetes cluster use IPv4 networking | `bool` | `true` | no |
+| <a name="input_node_enable_ipv6"></a> [node\_enable\_ipv6](#input\_node\_enable\_ipv6) | Kubernetes cluster use IPv6 networking | `bool` | `true` | no |
+| <a name="input_node_image"></a> [node\_image](#input\_node\_image) | Kubernetes cluster node image | `string` | `"ubuntu-24.04"` | no |
+| <a name="input_node_location"></a> [node\_location](#input\_node\_location) | Kubernetes cluster node location | `string` | `"fsn1"` | no |
+| <a name="input_node_type"></a> [node\_type](#input\_node\_type) | Kubernetes cluster node type | `string` | `"cax11"` | no |
+| <a name="input_private_network_ip_range"></a> [private\_network\_ip\_range](#input\_private\_network\_ip\_range) | Private network IP range | `string` | `"10.0.0.0/16"` | no |
+| <a name="input_private_network_subnet_ip_range"></a> [private\_network\_subnet\_ip\_range](#input\_private\_network\_subnet\_ip\_range) | Private network subnet IP range | `string` | `"10.0.1.0/24"` | no |
+| <a name="input_private_network_type"></a> [private\_network\_type](#input\_private\_network\_type) | Private network type | `string` | `"cloud"` | no |
+| <a name="input_private_network_zone"></a> [private\_network\_zone](#input\_private\_network\_zone) | Private network zone | `string` | `"eu-central"` | no |
+| <a name="input_ssh_keys"></a> [ssh\_keys](#input\_ssh\_keys) | SSH keys | `list(string)` | `null` | no |
+| <a name="input_worker_nodes_number"></a> [worker\_nodes\_number](#input\_worker\_nodes\_number) | Number of worker nodes in Cluster | `number` | `2` | no |
+| <a name="input_worker_nodes_ssh_priv_key"></a> [worker\_nodes\_ssh\_priv\_key](#input\_worker\_nodes\_ssh\_priv\_key) | Private SSH key used by master to reach worker nodes | `string` | `null` | no |
+| <a name="input_worker_nodes_ssh_pub_key"></a> [worker\_nodes\_ssh\_pub\_key](#input\_worker\_nodes\_ssh\_pub\_key) | Public SSH key deployed to worker nodes | `string` | `null` | no |
+
+## Outputs
+
+| Name | Description |
+| ---- | ----------- |
+| <a name="output_kubernetes_network_ip_range"></a> [kubernetes\_network\_ip\_range](#output\_kubernetes\_network\_ip\_range) | Kubernetes network IP range |
+| <a name="output_master_node_ip"></a> [master\_node\_ip](#output\_master\_node\_ip) | Master Node IP Address |
+<!-- END_TF_DOCS -->

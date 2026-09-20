@@ -24,7 +24,7 @@ packages:
 users:
   - name: cluster
     ssh-authorized-keys:
-      - ssh-rsa ${var.master_nodes_ssh_key}
+      - ssh-rsa ${var.master_nodes_ssh_pub_key}
     sudo: ALL=(ALL) NOPASSWD:ALL
     shell: /bin/bash
 runcmd:
