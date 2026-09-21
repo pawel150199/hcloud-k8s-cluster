@@ -1,0 +1,124 @@
+/* Print styling for the hcloud-k8s-cluster documentation PDFs. */
+
+:root {
+  --accent: #d50c2d;      /* Hetzner red */
+  --accent-dark: #a80a24;
+  --ink: #1f2933;
+  --muted: #52606d;
+  --border: #d9dee3;
+  --code-bg: #f5f7fa;
+}
+
+body {
+  font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: var(--ink);
+  font-size: 11.5px;
+  line-height: 1.55;
+  margin: 0;
+}
+
+h1, h2, h3, h4 {
+  color: var(--ink);
+  line-height: 1.25;
+  font-weight: 700;
+}
+
+h1 {
+  font-size: 26px;
+  border-bottom: 3px solid var(--accent);
+  padding-bottom: 6px;
+  margin-top: 0;
+}
+
+h2 {
+  font-size: 19px;
+  margin-top: 1.8em;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 4px;
+}
+
+h3 { font-size: 15px; margin-top: 1.4em; }
+h4 { font-size: 13px; color: var(--muted); }
+
+a { color: var(--accent-dark); text-decoration: none; }
+
+p, li { color: var(--ink); }
+
+code {
+  font-family: "SFMono-Regular", "JetBrains Mono", Menlo, Consolas, monospace;
+  background: var(--code-bg);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 0.9em;
+  color: #b3123a;
+}
+
+pre {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px 14px;
+  overflow-x: auto;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+pre code {
+  background: none;
+  padding: 0;
+  color: var(--ink);
+}
+
+/* Rendered Mermaid diagrams. */
+pre.mermaid,
+.mermaid {
+  background: transparent;
+  border: none;
+  text-align: center;
+  padding: 8px 0 14px;
+  page-break-inside: avoid;
+}
+pre.mermaid svg { max-width: 100%; height: auto; }
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 12px 0;
+  font-size: 10.2px;
+}
+
+th, td {
+  border: 1px solid var(--border);
+  padding: 6px 9px;
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  background: var(--code-bg);
+  font-weight: 700;
+}
+
+tr:nth-child(even) td { background: #fbfcfd; }
+
+blockquote {
+  margin: 12px 0;
+  padding: 8px 14px;
+  border-left: 4px solid var(--accent);
+  background: #fff5f6;
+  color: var(--muted);
+}
+
+blockquote p { margin: 0.3em 0; }
+
+hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 1.8em 0;
+}
+
+/* Manual page breaks: put <div class="page-break"></div> in the Markdown. */
+.page-break { page-break-after: always; }
+
+h1, h2, h3 { page-break-after: avoid; }
+table, pre, figure { page-break-inside: avoid; }
