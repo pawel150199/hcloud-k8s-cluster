@@ -1,11 +1,10 @@
-# Private K8S cluster
+# Hcloud K8S Cluster
 
-The ideae behind this project is to create own private Kubernetes cluster.
+The ideae behind this project is to create module for provisioning a Kubernetes cluster in Hetzner Cloud Provider.
 
-Cluster will be self managed and for the first creation it will be done by `k3s`.
-In the future it can be extended to create the fully managed Kubernetes cluster using other tools like kubeadm or different tool for bootstrapping Kubernetes.
+Cluster is self managed and is created using `k3s`.
 
-In hetzner community I found similar topic: https://community.hetzner.com/tutorials/setup-your-own-scalable-kubernetes-cluster
+In Hetzner community I found similar topic: https://community.hetzner.com/tutorials/setup-your-own-scalable-kubernetes-cluster
 
 ## Documentation
 
@@ -32,25 +31,6 @@ cd docs && make        # renders docs/pdf/*.pdf (requires md-to-pdf + internet)
 3. https://alexslubsky.medium.com/setup-highly-available-kubernetus-cluster-with-hetzner-cloud-and-terraform-941a9e25ddf6 -> nice article about setting up k8s in hcloud.
 4. https://registry.terraform.io/providers/hetznercloud/hcloud/latest -> terraform provider for hetzner cloud
 5. https://community.hetzner.com/tutorials/setup-your-own-scalable-kubernetes-cluster -> tutorial how to setup your own scalable kubernetes cluster
-
-## Requirements
-1. Infrastructure have to be written in code - terraform.
-2. Kubernetes cluster have to be set up automatically.
-3. Kubernetes cluster will have one master node and at least one worker node
-5. Deployments to the cluster will be done using GitOps.
-6. In K8S cluster will be deployed the full monitoring.
-7. Potentially scaling of the number of the nodes can be added.
-
-
-## Thoughts
-1. In Hetzner cloud there is no native solution for storing terraform state file so I am storing it in AWS S3 service.
-
-## Command for copying the kubeconfig from master node
-```bash
-scp -i <your_private_ssh_key> cluster@<master_node_public_ip>:/etc/rancher/k3s/k3s.yaml ~/.kube/config
-```
-
-## Module reference
 
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
