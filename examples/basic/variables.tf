@@ -6,5 +6,6 @@ variable "hcloud_token" {
 
 variable "ssh_public_key" {
   type        = string
-  description = "Public SSH key of your own machine, e.g. file(\"~/.ssh/id_ed25519.pub\")"
+  description = "Public SSH key of your own machine, e.g. file(\"~/.ssh/id_ed25519.pub\"). Optional if you set ssh_keys instead."
+  default     = null
 }

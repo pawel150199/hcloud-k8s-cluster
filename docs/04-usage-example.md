@@ -102,9 +102,12 @@ module "hcloud_kubernetes_cluster" {
   node_type     = "cax21"       # bump size for real workloads
   node_location = "nbg1"        # Nuremberg
 
+  # Either upload your own public key...
   ssh_public_key = trimspace(file("~/.ssh/id_ed25519.pub"))
 
-  ssh_keys = ["ops-laptop"]     # optional: key names that already exist in hcloud
+  # ...or reference keys already present in the project. Both are optional,
+  # and using only `ssh_keys` is a perfectly valid configuration.
+  ssh_keys = ["ops-laptop"]
 }
 
 output "master_ip" {

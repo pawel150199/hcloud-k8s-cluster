@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+
+### Changed
+ - `ssh_public_key` is now **optional** (defaults to `null`). Supplying only
+   `ssh_keys` — names or IDs of SSH keys that already exist in the Hetzner
+   project — is a valid configuration and no longer raises a validation error.
+ - `hcloud_ssh_key.admin` is only created when `ssh_public_key` is set, so no
+   empty key is ever uploaded to the Hetzner project.
+ - The `cluster` user's `authorized_keys` list in cloud-init is now rendered
+   from a list (`yamlencode`), so it holds just the module-generated key when no
+   admin key was supplied, instead of an empty entry.
+
 ## [0.1.1] - 2026-09-22
 
 ### Added

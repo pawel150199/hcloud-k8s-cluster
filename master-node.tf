@@ -24,8 +24,7 @@ packages:
 users:
   - name: cluster
     ssh-authorized-keys:
-      - ${trimspace(var.ssh_public_key)}
-      - ${trimspace(tls_private_key.master_node.public_key_openssh)}
+      ${indent(6, trimspace(yamlencode(local.master_authorized_keys)))}
     sudo: ALL=(ALL) NOPASSWD:ALL
     shell: /bin/bash
 

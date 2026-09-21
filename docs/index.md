@@ -34,6 +34,7 @@ module "hcloud_kubernetes_cluster" {
   worker_nodes_number = 2
 
   # The only key material you supply: your own public key.
+  # Optional - pass `ssh_keys` instead to reuse a key already in your project.
   ssh_public_key = trimspace(file("~/.ssh/id_ed25519.pub"))
 }
 ```
