@@ -85,7 +85,7 @@ This removes the servers, subnet, and network. **State lives in S3** and is
 unaffected — delete the state object separately if you're retiring the workspace.
 
 > **Before destroying:** back up anything you need (PersistentVolumes, etc.).
-> Hetzner Volumes and Load Balancers created *inside* the cluster by controllers,
+> Hetzner Volumes and Load Balancers created *inside* the cluster by controllers
 > are **not** managed by this module and may need separate cleanup.
 
 Back to the [documentation index](README.md).
