@@ -11,7 +11,9 @@ On `terraform apply` it creates:
 - a **private Hetzner network** and a subnet that every node attaches to;
 - one or more **master (server) nodes** that bootstrap a k3s control plane;
 - a configurable number of **worker (agent) nodes** that automatically join the
-  control plane over the private network.
+  control plane over the private network;
+- the **SSH key pairs** used between the nodes, generated on the fly — the only
+  key you hand the module is the public key of your own machine.
 
 Nodes are provisioned entirely through **cloud-init** (`user_data`): k3s is
 installed and configured on first boot, so no separate configuration-management
@@ -54,9 +56,14 @@ components that don't fit this environment:
 - Master node(s) with a bootstrapped k3s server
 - Worker node(s) that join the server automatically
 
+**In scope, generated for you:**
+
+- The SSH key pairs the master and worker nodes use to talk to each other —
+  created by the module with the `tls` provider, never passed in as variables
+
 **Out of scope (you provide these):**
 
-- The Hetzner Cloud project, API token, and SSH keys
+- The Hetzner Cloud project, API token, and your own public SSH key
 - Terraform remote state storage (the project uses **AWS S3** — Hetzner has no
   native state backend)
 - An external cloud-controller-manager, CNI extras, ingress, storage classes
@@ -67,11 +74,13 @@ components that don't fit this environment:
 
 ```text
 hcloud-k8s-cluster/
-├── network.tf          # hcloud_network + subnet
+├── main.tf             # hcloud_network + subnet
+├── ssh.tf              # generated node key pairs + uploaded admin key
 ├── master-node.tf      # hcloud_server master node(s) + k3s server cloud-init
 ├── worker-node.tf      # hcloud_server worker node(s) + k3s agent cloud-init
 ├── variables.tf        # input variables
 ├── outputs.tf          # module outputs
+├── versions.tf         # required Terraform + provider versions
 ├── examples/
 │   └── basic/          # runnable usage example
 └── docs/               # this documentation

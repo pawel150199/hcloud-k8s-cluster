@@ -5,7 +5,7 @@ resource "hcloud_server" "master_nodes" {
   image       = var.node_image
   server_type = var.node_type
   location    = var.node_location
-  ssh_keys    = var.ssh_keys
+  ssh_keys    = local.node_ssh_keys
 
   public_net {
     ipv4_enabled = var.node_enable_ipv4
@@ -24,9 +24,19 @@ packages:
 users:
   - name: cluster
     ssh-authorized-keys:
-      - ssh-rsa ${var.master_nodes_ssh_pub_key}
+      - ${trimspace(var.ssh_public_key)}
+      - ${trimspace(tls_private_key.master_node.public_key_openssh)}
     sudo: ALL=(ALL) NOPASSWD:ALL
     shell: /bin/bash
+
+write_files:
+  # Private key of the worker key pair, so the master can reach the workers.
+  - path: /root/.ssh/worker_node_key
+    owner: "root:root"
+    permissions: "0600"
+    content: |
+      ${indent(6, trimspace(tls_private_key.worker_node.private_key_openssh))}
+
 runcmd:
   - apt-get update -y
   - curl https://get.k3s.io | INSTALL_K3S_EXEC="--disable traefik --disable-cloud-controller --kubelet-arg cloud-provider=external" sh -

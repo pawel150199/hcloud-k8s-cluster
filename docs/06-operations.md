@@ -4,10 +4,18 @@ Day-2 tasks for a running cluster.
 
 ## 6.1 Accessing the cluster
 
-Copy the kubeconfig off the master and repoint it at the master's reachable IP:
+First materialise the generated key for the `cluster` user:
 
 ```bash
-scp -i ./master cluster@<master_public_ip>:/etc/rancher/k3s/k3s.yaml ~/.kube/config
+terraform output -raw master_node_ssh_private_key > ./master_key
+chmod 600 ./master_key
+```
+
+Then copy the kubeconfig off the master and repoint it at the master's reachable
+IP:
+
+```bash
+scp -i ./master_key cluster@<master_public_ip>:/etc/rancher/k3s/k3s.yaml ~/.kube/config
 sed -i '' "s/127.0.0.1/<master_public_ip>/" ~/.kube/config   # macOS sed
 kubectl get nodes -o wide
 ```
@@ -15,8 +23,16 @@ kubectl get nodes -o wide
 For a private-only setup, tunnel to the API server instead of exposing it:
 
 ```bash
-ssh -i ./master -L 6443:10.0.1.1:6443 cluster@<master_public_ip>
+ssh -i ./master_key -L 6443:10.0.1.1:6443 cluster@<master_public_ip>
 # then use a kubeconfig pointing at https://127.0.0.1:6443
+```
+
+Workers are reachable the same way, with the worker key pair:
+
+```bash
+terraform output -raw worker_node_ssh_private_key > ./worker_key
+chmod 600 ./worker_key
+ssh -i ./worker_key cluster@<worker_public_ip>
 ```
 
 ## 6.2 Verifying bootstrap
@@ -61,7 +77,23 @@ terraform apply -var 'worker_nodes_number=3'
 kubectl delete node worker-node-3     # remove the stale Node object
 ```
 
-## 6.4 What to deploy next
+## 6.4 Rotating the node SSH keys
+
+The key pairs are Terraform resources, so rotation is a taint + apply. Because
+the keys are baked into `user_data`, **replacing a key replaces the servers** —
+treat it as a cluster rebuild, not an in-place change.
+
+```bash
+terraform plan -replace='tls_private_key.master_node'
+terraform apply -replace='tls_private_key.master_node'
+```
+
+Rotating your own key is cheap by comparison: change `ssh_public_key` and
+re-apply. That also recreates the nodes (cloud-init `user_data` changes), so for
+day-to-day access prefer adding keys to `~cluster/.ssh/authorized_keys` on the
+running nodes.
+
+## 6.5 What to deploy next
 
 The module deliberately ships a bare cluster (Traefik and the built-in cloud
 controller are disabled). Typical next steps, ideally via GitOps:
@@ -75,7 +107,7 @@ controller are disabled). Typical next steps, ideally via GitOps:
 | GitOps | Argo CD or Flux |
 | Monitoring | kube-prometheus-stack (Prometheus + Grafana + Alertmanager) |
 
-## 6.5 Teardown
+## 6.6 Teardown
 
 ```bash
 terraform destroy
