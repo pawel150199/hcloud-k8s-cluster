@@ -34,6 +34,7 @@ runcmd:
   - chown cluster:cluster /var/lib/rancher/k3s/server/node-token
 EOF
 
-
+  labels = var.default_labels
+  
   depends_on = [hcloud_network_subnet.private_network_subnet]
 }

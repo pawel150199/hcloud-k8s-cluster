@@ -96,3 +96,12 @@ variable "master_nodes_ssh_pub_key" {
   description = "Public SSH key deployed to master nodes"
   default     = null
 }
+
+variable "default_labels" {
+  type = map(string)
+  description = "Default labels for resources"
+  default = {
+    "Confidentiality" = "C3"
+    "Project" = "Hetzner Kubernetes"
+  }
+}

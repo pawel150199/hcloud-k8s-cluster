@@ -41,6 +41,7 @@ runcmd:
   - # Install k3s worker
   - curl -sfL https://get.k3s.io | K3S_URL=https://10.0.1.1:6443 K3S_TOKEN=$REMOTE_TOKEN INSTALL_K3S_EXEC="--kubelet-arg cloud-provider=external" sh -
 EOF
-
+  labels = var.default_labels
+  
   depends_on = [hcloud_network_subnet.private_network_subnet, hcloud_server.master_nodes]
 }

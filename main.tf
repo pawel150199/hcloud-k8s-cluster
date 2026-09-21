@@ -1,6 +1,7 @@
 resource "hcloud_network" "private_network" {
-  name     = "kuberrnetes-cluster"
+  name     = "kubernetes-cluster"
   ip_range = var.private_network_ip_range
+  labels   = var.default_labels
 }
 
 resource "hcloud_network_subnet" "private_network_subnet" {
