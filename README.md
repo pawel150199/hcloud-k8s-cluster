@@ -57,14 +57,14 @@ scp -i <your_private_ssh_key> cluster@<master_node_public_ip>:/etc/rancher/k3s/k
 
 | Name | Version |
 | ---- | ------- |
-| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.5.0 |
-| <a name="requirement_hcloud"></a> [hcloud](#requirement\_hcloud) | ~> 1.52 |
+| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.15.0 |
+| <a name="requirement_hcloud"></a> [hcloud](#requirement\_hcloud) | ~> 1.69 |
 
 ## Providers
 
 | Name | Version |
 | ---- | ------- |
-| <a name="provider_hcloud"></a> [hcloud](#provider\_hcloud) | ~> 1.52 |
+| <a name="provider_hcloud"></a> [hcloud](#provider\_hcloud) | ~> 1.69 |
 
 ## Modules
 
@@ -83,6 +83,7 @@ No modules.
 
 | Name | Description | Type | Default | Required |
 | ---- | ----------- | ---- | ------- | :------: |
+| <a name="input_default_labels"></a> [default\_labels](#input\_default\_labels) | Default labels for resources | `map(string)` | <pre>{<br/>  "Confidentiality": "C3",<br/>  "Project": "Hetzner Kubernetes"<br/>}</pre> | no |
 | <a name="input_master_node_ip"></a> [master\_node\_ip](#input\_master\_node\_ip) | Kubernetes cluster master node ip | `string` | `"10.0.1.1"` | no |
 | <a name="input_master_nodes_number"></a> [master\_nodes\_number](#input\_master\_nodes\_number) | Number of master nodes in Cluster | `number` | `1` | no |
 | <a name="input_master_nodes_ssh_pub_key"></a> [master\_nodes\_ssh\_pub\_key](#input\_master\_nodes\_ssh\_pub\_key) | Public SSH key deployed to master nodes | `string` | `null` | no |

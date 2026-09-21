@@ -98,10 +98,10 @@ variable "master_nodes_ssh_pub_key" {
 }
 
 variable "default_labels" {
-  type = map(string)
+  type        = map(string)
   description = "Default labels for resources"
   default = {
     "Confidentiality" = "C3"
-    "Project" = "Hetzner Kubernetes"
+    "Project"         = "Hetzner Kubernetes"
   }
 }
