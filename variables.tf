@@ -122,9 +122,25 @@ variable "ssh_key_ecdsa_curve" {
 
 variable "default_labels" {
   type        = map(string)
-  description = "Default labels for resources"
+  description = "Default labels for resources. Hetzner label keys and values must start and end with an alphanumeric character and may only contain letters, digits, `-`, `_` and `.` (max 63 characters). Values may also be empty."
   default = {
     "Confidentiality" = "C3"
-    "Project"         = "Hetzner Kubernetes"
+    "Project"         = "hetzner-kubernetes"
+  }
+
+  validation {
+    condition = alltrue([
+      for k in keys(var.default_labels) :
+      can(regex("^[a-zA-Z0-9]([a-zA-Z0-9._-]{0,61}[a-zA-Z0-9])?$", k))
+    ])
+    error_message = "Each label key must start and end with an alphanumeric character and may only contain letters, digits, '-', '_' and '.' (max 63 characters)."
+  }
+
+  validation {
+    condition = alltrue([
+      for v in values(var.default_labels) :
+      v == "" || can(regex("^[a-zA-Z0-9]([a-zA-Z0-9._-]{0,61}[a-zA-Z0-9])?$", v))
+    ])
+    error_message = "Each label value must be empty or start and end with an alphanumeric character and may only contain letters, digits, '-', '_' and '.' (max 63 characters). Spaces are not allowed."
   }
 }

@@ -45,8 +45,8 @@ cd docs && make        # renders docs/pdf/*.pdf (requires md-to-pdf + internet)
 
 | Name | Version |
 | ---- | ------- |
-| <a name="provider_hcloud"></a> [hcloud](#provider\_hcloud) | ~> 1.69 |
-| <a name="provider_tls"></a> [tls](#provider\_tls) | ~> 4.0 |
+| <a name="provider_hcloud"></a> [hcloud](#provider\_hcloud) | 1.69.0 |
+| <a name="provider_tls"></a> [tls](#provider\_tls) | 4.4.1 |
 
 ## Modules
 
@@ -68,7 +68,7 @@ No modules.
 
 | Name | Description | Type | Default | Required |
 | ---- | ----------- | ---- | ------- | :------: |
-| <a name="input_default_labels"></a> [default\_labels](#input\_default\_labels) | Default labels for resources | `map(string)` | <pre>{<br/>  "Confidentiality": "C3",<br/>  "Project": "Hetzner Kubernetes"<br/>}</pre> | no |
+| <a name="input_default_labels"></a> [default\_labels](#input\_default\_labels) | Default labels for resources. Hetzner label keys and values must start and end with an alphanumeric character and may only contain letters, digits, `-`, `_` and `.` (max 63 characters). Values may also be empty. | `map(string)` | <pre>{<br/>  "Confidentiality": "C3",<br/>  "Project": "hetzner-kubernetes"<br/>}</pre> | no |
 | <a name="input_master_node_ip"></a> [master\_node\_ip](#input\_master\_node\_ip) | Kubernetes cluster master node ip | `string` | `"10.0.1.1"` | no |
 | <a name="input_master_nodes_number"></a> [master\_nodes\_number](#input\_master\_nodes\_number) | Number of master nodes in Cluster | `number` | `1` | no |
 | <a name="input_node_enable_ipv4"></a> [node\_enable\_ipv4](#input\_node\_enable\_ipv4) | Kubernetes cluster use IPv4 networking | `bool` | `true` | no |
