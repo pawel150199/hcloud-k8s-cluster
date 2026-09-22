@@ -56,7 +56,7 @@ variable "node_enable_ipv6" {
 
 variable "master_node_ip" {
   type        = string
-  description = "Kubernetes cluster master node ip"
+  description = "Kubernetes cluster master first node ip. For example: you have 2 master nodes and they private ip addresses are 10.0.1.1 and 10.0.1.2"
   default     = "10.0.1.1"
 }
 

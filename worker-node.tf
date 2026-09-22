@@ -14,6 +14,7 @@ resource "hcloud_server" "worker_nodes" {
 
   network {
     network_id = hcloud_network.private_network.id
+    ip         = "10.0.1.${count.index + 100}" # Worker nodes ips will start from x.x.x.101
   }
 
   user_data = <<EOF
