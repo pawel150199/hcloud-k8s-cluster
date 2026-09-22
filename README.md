@@ -45,8 +45,8 @@ cd docs && make        # renders docs/pdf/*.pdf (requires md-to-pdf + internet)
 
 | Name | Version |
 | ---- | ------- |
-| <a name="provider_hcloud"></a> [hcloud](#provider\_hcloud) | 1.69.0 |
-| <a name="provider_tls"></a> [tls](#provider\_tls) | 4.4.1 |
+| <a name="provider_hcloud"></a> [hcloud](#provider\_hcloud) | ~> 1.69 |
+| <a name="provider_tls"></a> [tls](#provider\_tls) | ~> 4.0 |
 
 ## Modules
 
