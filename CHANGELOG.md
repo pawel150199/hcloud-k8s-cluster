@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+### Removed
+ - `master_node_ip` and the hardcoded worker private IPs. Hetzner now assigns
+   every private address; the workers' cloud-init reads the master's private IP
+   off `hcloud_server.master_nodes[0]`, so nothing has to restate it.
+
 ### Changed
  - `ssh_public_key` is now **optional** (defaults to `null`). Supplying only
    `ssh_keys` — names or IDs of SSH keys that already exist in the Hetzner

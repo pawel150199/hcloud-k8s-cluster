@@ -54,12 +54,6 @@ variable "node_enable_ipv6" {
   default     = true
 }
 
-variable "master_node_ip" {
-  type        = string
-  description = "Kubernetes cluster master first node ip. For example: you have 2 master nodes and they private ip addresses are 10.0.1.1 and 10.0.1.2"
-  default     = "10.0.1.1"
-}
-
 variable "ssh_keys" {
   type        = list(string)
   description = "Optional names, IDs or fingerprints of SSH keys that already exist in the Hetzner project. They are installed on the nodes' root user and authorised for the `cluster` user, in addition to `ssh_public_key`."

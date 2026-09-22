@@ -14,7 +14,6 @@ resource "hcloud_server" "master_nodes" {
 
   network {
     network_id = hcloud_network.private_network.id
-    ip         = "${substr(var.master_node_ip, 0, 7)}${split(".", var.master_node_ip)[3] + count.index - 1}"
   }
 
   user_data = <<EOF

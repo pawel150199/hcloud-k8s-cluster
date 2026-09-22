@@ -21,5 +21,4 @@ module "hcloud_kubernetes_cluster" {
   private_network_zone            = "eu-central"
   private_network_type            = "cloud"
   private_network_subnet_ip_range = "10.0.1.0/24"
-  master_node_ip                  = "10.0.1.1"
 }

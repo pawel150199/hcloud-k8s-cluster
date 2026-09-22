@@ -1,3 +1,9 @@
+locals {
+  # Private IP the master got from the subnet. Read off the server itself so no
+  # variable has to restate it.
+  master_node_private_ip = one(hcloud_server.master_nodes[0].network).ip
+}
+
 resource "hcloud_server" "worker_nodes" {
   count = var.worker_nodes_number
 
@@ -14,7 +20,6 @@ resource "hcloud_server" "worker_nodes" {
 
   network {
     network_id = hcloud_network.private_network.id
-    ip         = "10.0.1.${count.index + 100}" # Worker nodes ips will start from x.x.x.101
   }
 
   user_data = <<EOF
@@ -44,11 +49,11 @@ write_files:
 runcmd:
   - apt-get update -y
   # wait for the master node to be ready by trying to connect to it
-  - until curl -k https://${var.master_node_ip}:6443; do sleep 5; done
+  - until curl -k https://${local.master_node_private_ip}:6443; do sleep 5; done
   # copy the token from the master node
-  - REMOTE_TOKEN=$(ssh -i /root/.ssh/master_node_key -o StrictHostKeyChecking=accept-new cluster@${var.master_node_ip} sudo cat /var/lib/rancher/k3s/server/node-token)
+  - REMOTE_TOKEN=$(ssh -i /root/.ssh/master_node_key -o StrictHostKeyChecking=accept-new cluster@${local.master_node_private_ip} sudo cat /var/lib/rancher/k3s/server/node-token)
   # Install k3s worker
-  - curl -sfL https://get.k3s.io | K3S_URL=https://${var.master_node_ip}:6443 K3S_TOKEN=$REMOTE_TOKEN INSTALL_K3S_EXEC="--kubelet-arg cloud-provider=external" sh -
+  - curl -sfL https://get.k3s.io | K3S_URL=https://${local.master_node_private_ip}:6443 K3S_TOKEN=$REMOTE_TOKEN INSTALL_K3S_EXEC="--kubelet-arg cloud-provider=external" sh -
 EOF
   labels    = var.default_labels
 

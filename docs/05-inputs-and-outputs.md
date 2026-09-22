@@ -21,7 +21,6 @@ Full reference for the module's variables (`variables.tf`) and outputs
 | `node_location` | `string` | `"fsn1"` | Hetzner location (`fsn1`, `nbg1`, `hel1`, …) |
 | `node_enable_ipv4` | `bool` | `true` | Attach a public IPv4 to nodes |
 | `node_enable_ipv6` | `bool` | `true` | Attach a public IPv6 to nodes |
-| `master_node_ip` | `string` | `"10.0.1.1"` | Fixed private IP assigned to the master node |
 
 ### Networking
 

@@ -23,7 +23,7 @@ kubectl get nodes -o wide
 For a private-only setup, tunnel to the API server instead of exposing it:
 
 ```bash
-ssh -i ./master_key -L 6443:10.0.1.1:6443 cluster@<master_public_ip>
+ssh -i ./master_key -L 6443:<master_private_ip>:6443 cluster@<master_public_ip>
 # then use a kubeconfig pointing at https://127.0.0.1:6443
 ```
 
@@ -59,7 +59,7 @@ flowchart LR
   A["edit worker_nodes_number<br/>2 → 4"] --> B["terraform plan"]
   B --> C["terraform apply"]
   C --> D["2 new servers boot"]
-  D --> E["cloud-init joins them<br/>to 10.0.1.1:6443"]
+  D --> E["cloud-init joins them<br/>to the master priv IP:6443"]
   E --> F["kubectl get nodes<br/>shows 4 workers"]
 ```
 

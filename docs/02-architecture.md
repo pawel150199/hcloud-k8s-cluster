@@ -25,7 +25,7 @@ flowchart TB
     NET --- SUB
 
     subgraph CP["Control plane"]
-      M0["master-node-0<br/>k3s server<br/>10.0.1.1"]
+      M0["master-node-0<br/>k3s server<br/>private IP from 10.0.1.0/24"]
     end
 
     subgraph WK["Workers"]
@@ -48,14 +48,14 @@ flowchart TB
 
 **Key points**
 
-- Every node has an interface on the **private subnet** (`10.0.1.0/24`). The
-  master pins itself to `10.0.1.1` (`master_node_ip`); workers get automatic
-  private IPs.
+- Every node has an interface on the **private subnet** (`10.0.1.0/24`).
+  Hetzner assigns every private IP; the module reads the master's back off
+  `hcloud_server.master_nodes[0]` rather than pinning it.
 - Nodes may also have **public IPv4/IPv6** (toggled by `node_enable_ipv4` /
   `node_enable_ipv6`) — used for outbound package downloads and, on the master,
   for fetching the kubeconfig.
-- Workers reach the control plane at **`https://10.0.1.1:6443`** over the private
-  network.
+- Workers reach the control plane at **`https://<master private IP>:6443`** over
+  the private network.
 
 ## 2.2 Network topology
 
@@ -67,7 +67,7 @@ flowchart LR
 
   subgraph HNET["hcloud_network 10.0.0.0/16"]
     subgraph SUBNET["subnet 10.0.1.0/24"]
-      M["master-node-0<br/>priv 10.0.1.1<br/>pub IPv4/IPv6"]
+      M["master-node-0<br/>priv IP (assigned)<br/>pub IPv4/IPv6"]
       W0["worker-node-0<br/>priv 10.0.1.x"]
       W1["worker-node-1<br/>priv 10.0.1.x"]
     end
@@ -84,7 +84,7 @@ flowchart LR
 | --- | --- | --- |
 | Network | `10.0.0.0/16` | `private_network_ip_range` |
 | Subnet | `10.0.1.0/24` | `eu-central`, type `cloud` |
-| Master private IP | `10.0.1.1` | `master_node_ip` (fixed) |
+| Master private IP | `10.0.1.0/24` pool | Assigned by Hetzner, read from the server |
 | Worker private IPs | `10.0.1.0/24` pool | Assigned by Hetzner |
 
 ## 2.3 Terraform resource graph
@@ -145,11 +145,11 @@ sequenceDiagram
   Note over M: control plane Ready at port 6443
 
   Note over W: first boot (cloud-init)
-  W->>M: poll https 10.0.1.1:6443 until ready
+  W->>M: poll https <master priv IP>:6443 until ready
   M-->>W: API server responds
   W->>M: ssh with generated master key<br/>and read node-token
   M-->>W: k3s join token
-  W->>W: install k3s agent<br/>joined to 10.0.1.1:6443
+  W->>W: install k3s agent<br/>joined to master priv IP:6443
   W->>M: register node over private network
   Note over M,W: worker joins and node becomes Ready
 ```
@@ -169,14 +169,14 @@ curl https://get.k3s.io | \
 
 ```bash
 # 1. wait for the API server
-until curl -k https://10.0.1.1:6443; do sleep 5; done
+until curl -k https://${local.master_node_private_ip}:6443; do sleep 5; done
 # 2. pull the join token from the master over SSH, using the module-generated
 #    private key that cloud-init wrote to /root/.ssh/master_node_key
 REMOTE_TOKEN=$(ssh -i /root/.ssh/master_node_key -o StrictHostKeyChecking=accept-new \
-  cluster@10.0.1.1 sudo cat /var/lib/rancher/k3s/server/node-token)
+  cluster@${local.master_node_private_ip} sudo cat /var/lib/rancher/k3s/server/node-token)
 # 3. install and join
 curl -sfL https://get.k3s.io | \
-  K3S_URL=https://10.0.1.1:6443 K3S_TOKEN=$REMOTE_TOKEN \
+  K3S_URL=https://${local.master_node_private_ip}:6443 K3S_TOKEN=$REMOTE_TOKEN \
   INSTALL_K3S_EXEC="--kubelet-arg cloud-provider=external" sh -
 ```
 
@@ -226,7 +226,7 @@ flowchart LR
   KW -->|public| WC
   KW -->|private| MF
 
-  WF -.->|ssh cluster@10.0.1.1<br/>read node-token| MC
+  WF -.->|ssh cluster@master priv IP<br/>read node-token| MC
   MF -.->|ssh cluster@worker| WC
 ```
 

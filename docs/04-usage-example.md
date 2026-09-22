@@ -31,7 +31,6 @@ module "hcloud_kubernetes_cluster" {
   private_network_zone            = "eu-central"
   private_network_type            = "cloud"
   private_network_subnet_ip_range = "10.0.1.0/24"
-  master_node_ip                  = "10.0.1.1"
 }
 ```
 
@@ -148,7 +147,7 @@ ssh -i ./master_key cluster@"$(terraform output -raw master_node_ip)"
 | `node_location` | `fsn1`, `nbg1`, `hel1`, `ash`, `hil` | Keep nodes in one location for low-latency private networking |
 | `node_image` | `ubuntu-24.04`, `debian-12` | cloud-init assumes an `apt`-based image |
 | `worker_nodes_number` | `1`–`N` | Scale by changing this and re-applying |
-| `master_nodes_number` | `1` | Single control plane; `master_node_ip` pins the master, so keep this at `1` |
+| `master_nodes_number` | `1` | Single control plane; workers join the first master, so keep this at `1` |
 | `ssh_key_algorithm` | `ED25519`, `RSA`, `ECDSA` | Algorithm of the key pairs the module generates for the nodes |
 
 Continue to [Inputs & outputs »](05-inputs-and-outputs.md)
