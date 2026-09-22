@@ -21,6 +21,9 @@ resource "hcloud_server" "worker_nodes" {
 packages:
   - curl
 users:
+  # Keep the distro default user, otherwise cloud-init drops it and has no
+  # default user to install the Hetzner-provided keys on.
+  - default
   - name: cluster
     ssh-authorized-keys:
       ${indent(6, trimspace(yamlencode(local.worker_authorized_keys)))}

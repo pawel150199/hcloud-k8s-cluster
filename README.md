@@ -63,6 +63,7 @@ No modules.
 | [hcloud_ssh_key.admin](https://registry.terraform.io/providers/hetznercloud/hcloud/latest/docs/resources/ssh_key) | resource |
 | [tls_private_key.master_node](https://registry.terraform.io/providers/hashicorp/tls/latest/docs/resources/private_key) | resource |
 | [tls_private_key.worker_node](https://registry.terraform.io/providers/hashicorp/tls/latest/docs/resources/private_key) | resource |
+| [hcloud_ssh_keys.project](https://registry.terraform.io/providers/hetznercloud/hcloud/latest/docs/data-sources/ssh_keys) | data source |
 
 ## Inputs
 
@@ -83,7 +84,7 @@ No modules.
 | <a name="input_ssh_key_algorithm"></a> [ssh\_key\_algorithm](#input\_ssh\_key\_algorithm) | Algorithm used for the SSH key pairs generated for the master and worker nodes. One of RSA, ECDSA, ED25519. | `string` | `"ED25519"` | no |
 | <a name="input_ssh_key_ecdsa_curve"></a> [ssh\_key\_ecdsa\_curve](#input\_ssh\_key\_ecdsa\_curve) | Curve of the generated SSH key pairs. Only used when ssh\_key\_algorithm is ECDSA. | `string` | `"P384"` | no |
 | <a name="input_ssh_key_rsa_bits"></a> [ssh\_key\_rsa\_bits](#input\_ssh\_key\_rsa\_bits) | Key size of the generated SSH key pairs. Only used when ssh\_key\_algorithm is RSA. | `number` | `4096` | no |
-| <a name="input_ssh_keys"></a> [ssh\_keys](#input\_ssh\_keys) | Optional names or IDs of SSH keys that already exist in the Hetzner project. They are installed on the nodes' root user in addition to `ssh_public_key`. | `list(string)` | `[]` | no |
+| <a name="input_ssh_keys"></a> [ssh\_keys](#input\_ssh\_keys) | Optional names, IDs or fingerprints of SSH keys that already exist in the Hetzner project. They are installed on the nodes' root user and authorised for the `cluster` user, in addition to `ssh_public_key`. | `list(string)` | `[]` | no |
 | <a name="input_ssh_public_key"></a> [ssh\_public\_key](#input\_ssh\_public\_key) | Public SSH key of your own machine. It is uploaded to the Hetzner project and installed on the root and cluster users of every node. Leave unset to rely on `ssh_keys` instead. | `string` | `null` | no |
 | <a name="input_worker_nodes_number"></a> [worker\_nodes\_number](#input\_worker\_nodes\_number) | Number of worker nodes in Cluster | `number` | `2` | no |
 

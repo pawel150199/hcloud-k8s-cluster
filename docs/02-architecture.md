@@ -189,9 +189,11 @@ curl -sfL https://get.k3s.io | \
 The module generates **two key pairs** with the `tls` provider and distributes
 them through cloud-init. Nothing but your own public key comes from a variable,
 and that one is optional: skip `ssh_public_key` and pass `ssh_keys` instead to
-reuse keys that already exist in your Hetzner project. When `ssh_public_key` is
-unset, `hcloud_ssh_key.admin` is not created and the `cluster` user simply gets
-one authorised key instead of two.
+reuse keys that already exist in your Hetzner project. Those are looked up with
+the `hcloud_ssh_keys` data source so their public key material can be authorised
+for the `cluster` user too — `hcloud_server.ssh_keys` alone would install them on
+`root` only. When neither input is set, `hcloud_ssh_key.admin` is not created and
+the `cluster` user is reachable only with the module-generated key.
 
 ```mermaid
 flowchart LR

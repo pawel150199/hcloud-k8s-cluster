@@ -62,7 +62,7 @@ variable "master_node_ip" {
 
 variable "ssh_keys" {
   type        = list(string)
-  description = "Optional names or IDs of SSH keys that already exist in the Hetzner project. They are installed on the nodes' root user in addition to `ssh_public_key`."
+  description = "Optional names, IDs or fingerprints of SSH keys that already exist in the Hetzner project. They are installed on the nodes' root user and authorised for the `cluster` user, in addition to `ssh_public_key`."
   default     = []
   nullable    = false
 }

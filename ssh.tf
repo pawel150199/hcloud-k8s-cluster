@@ -27,6 +27,13 @@ resource "hcloud_ssh_key" "admin" {
   labels     = var.default_labels
 }
 
+# hcloud_server installs the keys named in `var.ssh_keys` on the root user only,
+# and a name or ID carries no key material. Look the project's keys up so the
+# selected ones can also be authorised for the "cluster" user via cloud-init.
+data "hcloud_ssh_keys" "project" {
+  count = length(var.ssh_keys) == 0 ? 0 : 1
+}
+
 locals {
   # Empty when no key was supplied, so every use below can be made conditional.
   admin_public_key = var.ssh_public_key == null ? "" : trimspace(var.ssh_public_key)
@@ -34,15 +41,30 @@ locals {
   # Hetzner-managed keys installed on the "root" user of every node.
   node_ssh_keys = concat(hcloud_ssh_key.admin[*].id, var.ssh_keys)
 
-  # Keys authorised for the "cluster" user, rendered into cloud-init.
-  # The admin key is dropped from the list when it was not supplied.
-  master_authorized_keys = compact([
-    local.admin_public_key,
-    trimspace(tls_private_key.master_node.public_key_openssh),
-  ])
+  # Public key material of the pre-existing keys selected by `var.ssh_keys`.
+  # Entries may be names, IDs or fingerprints, so all three are matched.
+  existing_public_keys = [
+    for key in try(data.hcloud_ssh_keys.project[0].ssh_keys, []) :
+    trimspace(key.public_key)
+    if(
+      contains(var.ssh_keys, key.name) ||
+      contains(var.ssh_keys, tostring(key.id)) ||
+      contains(var.ssh_keys, key.fingerprint)
+    )
+  ]
 
-  worker_authorized_keys = compact([
-    local.admin_public_key,
-    trimspace(tls_private_key.worker_node.public_key_openssh),
-  ])
+  # Every key the operator may hold: their own public key plus the project keys
+  # they asked for. Empty entries are dropped so cloud-init stays well-formed.
+  admin_authorized_keys = compact(concat([local.admin_public_key], local.existing_public_keys))
+
+  # Keys authorised for the "cluster" user, rendered into cloud-init.
+  master_authorized_keys = concat(
+    local.admin_authorized_keys,
+    [trimspace(tls_private_key.master_node.public_key_openssh)],
+  )
+
+  worker_authorized_keys = concat(
+    local.admin_authorized_keys,
+    [trimspace(tls_private_key.worker_node.public_key_openssh)],
+  )
 }
