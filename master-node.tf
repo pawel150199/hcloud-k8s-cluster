@@ -18,7 +18,9 @@ resource "hcloud_server" "master_nodes" {
   }
 
   user_data = <<EOF
-# master node cloud-config
+#cloud-config
+# master node bootstrap. The '#cloud-config' header above must stay on the very
+# first line, otherwise cloud-init discards this whole document.
 packages:
   - curl
 users:
@@ -26,7 +28,7 @@ users:
   # default user to install the Hetzner-provided keys on.
   - default
   - name: cluster
-    ssh-authorized-keys:
+    ssh_authorized_keys:
       ${indent(6, trimspace(yamlencode(local.master_authorized_keys)))}
     sudo: ALL=(ALL) NOPASSWD:ALL
     shell: /bin/bash
