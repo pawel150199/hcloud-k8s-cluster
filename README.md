@@ -100,10 +100,6 @@ No modules.
 
 | Name | Description |
 | ---- | ----------- |
-| <a name="output_kubernetes_network_ip_range"></a> [kubernetes\_network\_ip\_range](#output\_kubernetes\_network\_ip\_range) | Kubernetes network IP range |
-| <a name="output_master_node_ip"></a> [master\_node\_ip](#output\_master\_node\_ip) | Master Node IP Address |
-| <a name="output_master_node_ssh_private_key"></a> [master\_node\_ssh\_private\_key](#output\_master\_node\_ssh\_private\_key) | Private key matching master\_node\_ssh\_public\_key. Use it to SSH into the master as the cluster user. |
-| <a name="output_master_node_ssh_public_key"></a> [master\_node\_ssh\_public\_key](#output\_master\_node\_ssh\_public\_key) | Public key of the SSH key pair generated for the master node's cluster user |
-| <a name="output_worker_node_ssh_private_key"></a> [worker\_node\_ssh\_private\_key](#output\_worker\_node\_ssh\_private\_key) | Private key matching worker\_node\_ssh\_public\_key. Use it to SSH into the workers as the cluster user. |
-| <a name="output_worker_node_ssh_public_key"></a> [worker\_node\_ssh\_public\_key](#output\_worker\_node\_ssh\_public\_key) | Public key of the SSH key pair generated for the worker nodes' cluster user |
+| <a name="output_master_nodes_ips"></a> [master\_nodes\_ips](#output\_master\_nodes\_ips) | Master Nodes IP Addresses |
+| <a name="output_worker_nodes_ips"></a> [worker\_nodes\_ips](#output\_worker\_nodes\_ips) | Worker Nodes IP Addresses |
 <!-- END_TF_DOCS -->
