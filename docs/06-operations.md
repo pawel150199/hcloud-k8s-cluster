@@ -95,12 +95,12 @@ running nodes.
 
 ## 6.5 What to deploy next
 
-The module deliberately ships a bare cluster (Traefik and the built-in cloud
-controller are disabled). Typical next steps, ideally via GitOps:
+The module deliberately ships a bare cluster (Traefik is disabled). Typical next
+steps, ideally via GitOps:
 
 | Concern | Options |
 | --- | --- |
-| Cloud controller | [hcloud-cloud-controller-manager](https://github.com/hetznercloud/hcloud-cloud-controller-manager) (nodes already run `cloud-provider=external`) |
+| Cloud controller | [hcloud-cloud-controller-manager](https://github.com/hetznercloud/hcloud-cloud-controller-manager), for Hetzner load balancers and provider IDs. Deploy it **first**, then add `--kubelet-arg cloud-provider=external` and `--disable-cloud-controller` to the k3s args — adding those flags without a working CCM leaves nodes with no `InternalIP` and crash-loops the k3s server |
 | CNI / networking | k3s ships Flannel by default; swap for Cilium/Calico if needed |
 | Ingress | ingress-nginx, Traefik (re-enabled), or Gateway API |
 | Storage | [hcloud-csi-driver](https://github.com/hetznercloud/csi-driver) for Hetzner Volumes |

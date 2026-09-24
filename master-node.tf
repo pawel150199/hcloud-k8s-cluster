@@ -17,6 +17,7 @@ resource "hcloud_server" "master_nodes" {
 
   network {
     network_id = hcloud_network.private_network.id
+    ip         = local.master_node_private_ips[count.index]
   }
 
   user_data = <<EOF
@@ -45,7 +46,32 @@ write_files:
 
 runcmd:
   - apt-get update -y
-  - curl https://get.k3s.io | INSTALL_K3S_EXEC="--disable traefik --disable-cloud-controller --kubelet-arg cloud-provider=external" sh -
+  # The private NIC is configured by cloud-init's network stage and can still be
+  # missing here, and k3s must not come up bound to the public interface.
+  - until ip -4 -o addr show | grep -q " ${local.master_node_private_ips[count.index]}/"; do sleep 2; done
+  # Hetzner names the private NIC enp7s0 or ens10 depending on the image, so it
+  # is looked up by the address assigned above rather than hardcoded.
+  - PRIVATE_IFACE=$(ip -4 -o addr show | grep " ${local.master_node_private_ips[count.index]}/" | awk '{ print $2 }')
+  # The public address is read from the metadata service: the server cannot read
+  # its own ipv4_address at this point without a dependency cycle. It becomes a
+  # cert SAN so kubectl still works from outside the private network.
+  - PUBLIC_IP=$(curl -sf http://169.254.169.254/hetzner/v1/metadata/public-ipv4 || true)
+  # --node-ip and --flannel-iface keep kubelet (10250) and the VXLAN overlay
+  # (8472/UDP) on the private network, which is the only source the firewall
+  # accepts them from.
+  #
+  # The kubelet deliberately runs WITHOUT cloud-provider=external. With that flag
+  # the kubelet leaves node.status.addresses empty and waits for an external
+  # cloud-controller-manager to fill them in; this module ships none, so nodes
+  # stayed without an InternalIP and k3s' network policy controller shut the
+  # whole server down on every start ("error getting primary NodeIP: host IP
+  # unknown"). k3s' built-in cloud controller is left enabled for the same
+  # reason. Add both back together with hcloud-cloud-controller-manager if you
+  # want Hetzner load balancers and provider IDs.
+  - K3S_ARGS="server --disable traefik --node-ip ${local.master_node_private_ips[count.index]} --advertise-address ${local.master_node_private_ips[count.index]} --flannel-iface $PRIVATE_IFACE --tls-san ${local.master_node_private_ips[count.index]}"
+  - if [ -n "$PUBLIC_IP" ]; then K3S_ARGS="$K3S_ARGS --tls-san $PUBLIC_IP"; fi
+  # -f so a failed download is not piped into sh as a silent no-op.
+  - curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="$K3S_ARGS" sh -
   - chown cluster:cluster /etc/rancher/k3s/k3s.yaml
   - chown cluster:cluster /var/lib/rancher/k3s/server/node-token
 EOF

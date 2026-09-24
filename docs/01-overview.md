@@ -43,7 +43,11 @@ components that don't fit this environment:
 | Disabled | Why |
 |----------|-----|
 | `traefik` | Leave ingress choice to the user / GitOps stack |
-| `cloud-controller` (built-in) | Replaced by an external cloud controller; nodes run with `--kubelet-arg cloud-provider=external` |
+| *(nothing else)* | The built-in cloud controller stays **enabled**. It is what populates `node.status.addresses`; without it, and without an external replacement, nodes come up with no `InternalIP` and k3s' network policy controller shuts the server down on every start |
+
+Nodes deliberately run **without** `--kubelet-arg cloud-provider=external`. Add
+that flag together with an external cloud-controller-manager, never on its own —
+see [operations](06-operations.md#65-what-to-deploy-next).
 
 > The module is a **starting point**. The project README notes it may later be
 > extended to bootstrap Kubernetes with other tools (e.g. `kubeadm`).
@@ -66,7 +70,8 @@ components that don't fit this environment:
 - The Hetzner Cloud project, API token, and your own public SSH key
 - Terraform remote state storage (the project uses **AWS S3** — Hetzner has no
   native state backend)
-- An external cloud-controller-manager, CNI extras, ingress, storage classes
+- An external cloud-controller-manager (needed for Hetzner load balancers and
+  provider IDs), CNI extras, ingress, storage classes
 - GitOps controllers and the monitoring stack (deployed *into* the cluster after
   it exists)
 

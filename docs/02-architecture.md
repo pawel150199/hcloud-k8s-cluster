@@ -140,7 +140,7 @@ sequenceDiagram
 
   Note over M: first boot (cloud-init)
   M->>M: apt-get update and install curl
-  M->>M: install k3s server<br/>disable traefik and cloud-controller
+  M->>M: install k3s server<br/>disable traefik, pin node-ip to private network
   M->>M: make kubeconfig and node-token<br/>readable by the cluster user
   Note over M: control plane Ready at port 6443
 
@@ -159,9 +159,13 @@ sequenceDiagram
 **Master (`master-node.tf`):**
 
 ```bash
-curl https://get.k3s.io | \
-  INSTALL_K3S_EXEC="--disable traefik --disable-cloud-controller \
-    --kubelet-arg cloud-provider=external" sh -
+# PRIVATE_IFACE is looked up from the address Terraform assigned; PUBLIC_IP
+# comes from the Hetzner metadata service and is added as a second cert SAN.
+curl -sfL https://get.k3s.io | \
+  INSTALL_K3S_EXEC="server --disable traefik \
+    --node-ip <master priv IP> --advertise-address <master priv IP> \
+    --flannel-iface $PRIVATE_IFACE \
+    --tls-san <master priv IP> --tls-san $PUBLIC_IP" sh -
 # then make kubeconfig + node-token readable by the "cluster" user
 ```
 
@@ -169,7 +173,7 @@ curl https://get.k3s.io | \
 
 ```bash
 # 1. wait for the API server
-until curl -k https://${local.master_node_private_ip}:6443; do sleep 5; done
+for i in $(seq 1 120); do curl -sk https://${local.master_node_private_ip}:6443/ping && break; sleep 5; done
 # 2. pull the join token from the master over SSH, using the module-generated
 #    private key that cloud-init wrote to /root/.ssh/master_node_key
 REMOTE_TOKEN=$(ssh -i /root/.ssh/master_node_key -o StrictHostKeyChecking=accept-new \
@@ -177,8 +181,13 @@ REMOTE_TOKEN=$(ssh -i /root/.ssh/master_node_key -o StrictHostKeyChecking=accept
 # 3. install and join
 curl -sfL https://get.k3s.io | \
   K3S_URL=https://${local.master_node_private_ip}:6443 K3S_TOKEN=$REMOTE_TOKEN \
-  INSTALL_K3S_EXEC="--kubelet-arg cloud-provider=external" sh -
+  INSTALL_K3S_EXEC="--node-ip <worker priv IP> --flannel-iface $PRIVATE_IFACE" sh -
 ```
+
+> **Why `--node-ip` / `--flannel-iface`.** Left to itself k3s picks the address
+> of the default route, which on Hetzner is the *public* interface. The firewall
+> scopes the kubelet port (10250) and the Flannel VXLAN port (8472/UDP) to the
+> private range, so the overlay and `kubectl logs`/`exec` would be dropped.
 
 > **Trust model.** Workers authenticate to the master over SSH to read the k3s
 > node-token, then use that token to join the API server. The key pair that
