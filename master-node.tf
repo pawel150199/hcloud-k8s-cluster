@@ -46,8 +46,8 @@ write_files:
 
 runcmd:
   - apt-get update -y
-  - until ip -4 -o addr show | grep -q " ${local.master_node_private_ips[count.index]}/"; do sleep 2; done
-  - PRIVATE_IFACE=$(ip -4 -o addr show | grep " ${local.master_node_private_ips[count.index]}/" | awk '{ print $2 }')
+  - for i in $(seq 1 60); do PRIVATE_IFACE=$(ip -4 -o addr show | grep " ${local.master_node_private_ips[count.index]}/" | awk '{ print $2 }'); [ -n "$PRIVATE_IFACE" ] && break; sleep 2; done
+  - if [ -z "$PRIVATE_IFACE" ]; then echo "private address ${local.master_node_private_ips[count.index]} never came up, aborting k3s install" >&2; exit 1; fi
   - PUBLIC_IP=$(curl -sf http://169.254.169.254/hetzner/v1/metadata/public-ipv4 || true)
   - K3S_ARGS="server --disable traefik --node-ip ${local.master_node_private_ips[count.index]} --advertise-address ${local.master_node_private_ips[count.index]} --flannel-iface $PRIVATE_IFACE --tls-san ${local.master_node_private_ips[count.index]}"
   - if [ -n "$PUBLIC_IP" ]; then K3S_ARGS="$K3S_ARGS --tls-san $PUBLIC_IP"; fi

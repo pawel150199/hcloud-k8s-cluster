@@ -50,8 +50,8 @@ write_files:
 
 runcmd:
   - apt-get update -y
-  - until ip -4 -o addr show | grep -q " ${local.worker_node_private_ips[count.index]}/"; do sleep 2; done
-  - PRIVATE_IFACE=$(ip -4 -o addr show | grep " ${local.worker_node_private_ips[count.index]}/" | awk '{ print $2 }')
+  - for i in $(seq 1 60); do PRIVATE_IFACE=$(ip -4 -o addr show | grep " ${local.worker_node_private_ips[count.index]}/" | awk '{ print $2 }'); [ -n "$PRIVATE_IFACE" ] && break; sleep 2; done
+  - if [ -z "$PRIVATE_IFACE" ]; then echo "private address ${local.worker_node_private_ips[count.index]} never came up, aborting k3s install" >&2; exit 1; fi
   # wait for the master node to be ready by trying to connect to it
   - for i in $(seq 1 120); do curl -sk https://${local.master_node_private_ip}:6443/ping > /dev/null && break; sleep 5; done
   # copy the token from the master node
