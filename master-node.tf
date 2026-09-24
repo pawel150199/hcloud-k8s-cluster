@@ -37,6 +37,21 @@ users:
     shell: /bin/bash
 
 write_files:
+  # The Hetzner image only renders netplan config for eth0, so the private NIC
+  # (enp7s0) stays DOWN with no address and nothing joins over the private
+  # network. eth0 keeps its own name, and its altname is enx<mac>, so "enp*"
+  # matches only the private interfaces.
+  - path: /etc/netplan/60-hcloud-private.yaml
+    owner: "root:root"
+    permissions: "0600"
+    content: |
+      network:
+        version: 2
+        ethernets:
+          hcloud-private:
+            match:
+              name: "enp*"
+            dhcp4: true
   # Private key of the worker key pair, so the master can reach the workers.
   - path: /root/.ssh/worker_node_key
     owner: "root:root"
@@ -45,6 +60,7 @@ write_files:
       ${indent(6, trimspace(tls_private_key.worker_node.private_key_openssh))}
 
 runcmd:
+  - netplan apply
   - apt-get update -y
   - for i in $(seq 1 60); do PRIVATE_IFACE=$(ip -4 -o addr show | grep " ${local.master_node_private_ips[count.index]}/" | awk '{ print $2 }'); [ -n "$PRIVATE_IFACE" ] && break; sleep 2; done
   - if [ -z "$PRIVATE_IFACE" ]; then echo "private address ${local.master_node_private_ips[count.index]} never came up, aborting k3s install" >&2; exit 1; fi
