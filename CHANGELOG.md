@@ -4,7 +4,63 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [Unreleased]
+## [0.1.7] - 2026-09-24
+
+### Added
+ - `hcloud_firewall.master_kubernetes_firewall` and
+   `hcloud_firewall.worker_kubernetes_firewall`, attached to the nodes through
+   `firewall_ids`. Previously no firewall resource was attached to any server.
+ - Full set of k3s ports, scoped to `var.private_network_ip_range` rather than
+   the whole internet: `8472/UDP` (Flannel VXLAN), `10250/TCP` (kubelet API),
+   `5001/TCP` (embedded registry mirror) and ICMP on both roles, plus
+   `2379-2380/TCP` (embedded etcd, HA control plane) on the masters.
+ - `custom_master_firewall_rules` and `custom_worker_firewall_rules` to append
+   rules on top of the defaults. Only `direction` and `protocol` are required;
+   `port`, `source_ips`, `destination_ips` and `description` are optional, so an
+   ICMP rule no longer has to invent a port value.
+ - `ssh_source_ips` and `kube_api_source_ips` to narrow who may reach SSH and
+   the Kubernetes API. Both default to the whole internet, which keeps the
+   previous behaviour, but are worth restricting.
+ - `placement_group_strategy` — the placement group referenced this variable
+   without it ever being declared.
+
+### Changed
+ - **Breaking:** the placement group is now created only when
+   `use_placement_group` is `true` (`count = var.use_placement_group ? 1 : 0`).
+   Its address moves to `hcloud_placement_group.kubernetes_placement_group[0]`,
+   so existing state needs:
+   `terraform state mv 'hcloud_placement_group.kubernetes_placement_group' 'hcloud_placement_group.kubernetes_placement_group[0]'`
+   Without it Terraform plans a destroy/create of the group, which forces an
+   update on every server attached to it.
+ - **Breaking:** nodes now have a firewall attached. Traffic that used to reach
+   them on any port is filtered from this release on; anything beyond SSH,
+   HTTPS, the Kubernetes API and the intra-cluster ports has to be added through
+   `custom_*_firewall_rules`.
+
+### Fixed
+ - All outbound UDP was blocked. The defaults allowed only `out tcp any`, and
+   Hetzner drops every protocol that is not explicitly allowed as soon as one
+   outbound rule exists — so DNS (`53/UDP`) and NTP (`123/UDP`) never left the
+   node, which breaks image pulls and the k3s install itself. Outbound UDP and
+   ICMP are now allowed.
+ - `custom_master_firewall_rules` was declared twice in `variables.tf`; the
+   second declaration was meant to be `custom_worker_firewall_rules`. The
+   duplicate made the whole module fail to validate.
+ - Reading `source_ips` off the default rule list failed at plan time with
+   *"This object does not have an attribute named source_ips"*. The list mixed
+   objects of different shapes, which makes it a tuple, and the outbound rule
+   simply had no such attribute — a `!= null` guard cannot catch an attribute
+   that is absent rather than null. Every rule now carries the full attribute
+   set. Note that `terraform validate` passes on this; only `plan` catches it.
+ - Outbound rules never set `destination_ips`, which Hetzner requires for
+   `direction = "out"`.
+ - `labels` on the placement group referenced a bare `default_labels` instead of
+   `var.default_labels`.
+ - `examples/basic` passed `node_type`, which no longer exists after the split
+   into `master_node_type` and `worker_node_type`, so the example failed to
+   validate.
+
+## [0.1.6] - 2026-09-23
 
 ### Removed
  - `master_node_ip` and the hardcoded worker private IPs. Hetzner now assigns

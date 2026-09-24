@@ -27,13 +27,19 @@ variable "private_network_subnet_ip_range" {
 variable "node_image" {
   type        = string
   description = "Kubernetes cluster node image"
-  default     = "ubuntu-24.04"
+  default     = "ubuntu-26.04"
 }
 
-variable "node_type" {
+variable "master_node_type" {
   type        = string
-  description = "Kubernetes cluster node type"
-  default     = "cax11"
+  description = "Master node type"
+  default     = "cx23"
+}
+
+variable "worker_node_type" {
+  type        = string
+  description = "Worker node type"
+  default     = "cx23"
 }
 
 variable "node_location" {
@@ -71,6 +77,52 @@ variable "master_nodes_number" {
   type        = number
   description = "Number of master nodes in Cluster"
   default     = 1
+}
+
+# Placement Group
+variable "use_placement_group" {
+  type        = bool
+  description = "If true it uses Placement Group, which spread nodes on different physical machines. It decreaded the probability that some instances might fail together"
+  default     = true
+}
+
+# Firewall configurations
+variable "ssh_source_ips" {
+  type        = list(string)
+  description = "Networks allowed to reach SSH on the nodes. Defaults to the whole internet; narrow it to your own address where you can."
+  default     = ["0.0.0.0/0", "::/0"]
+}
+
+variable "kube_api_source_ips" {
+  type        = list(string)
+  description = "Networks allowed to reach the Kubernetes API on port 6443 from outside the cluster. Nodes themselves join over the private network and are always allowed."
+  default     = ["0.0.0.0/0", "::/0"]
+}
+
+variable "custom_master_firewall_rules" {
+  type = list(object({
+    direction       = string
+    protocol        = string
+    port            = optional(string)
+    source_ips      = optional(list(string))
+    destination_ips = optional(list(string))
+    description     = optional(string)
+  }))
+  description = "Additional firewall rules for the master nodes, applied on top of the defaults (inbound 22, 443, 6443 and outbound TCP to anywhere)."
+  default     = []
+}
+
+variable "custom_worker_firewall_rules" {
+  type = list(object({
+    direction       = string
+    protocol        = string
+    port            = optional(string)
+    source_ips      = optional(list(string))
+    destination_ips = optional(list(string))
+    description     = optional(string)
+  }))
+  description = "Additional firewall rules for the worker nodes, applied on top of the defaults (inbound 22, 443 and outbound TCP to anywhere)."
+  default     = []
 }
 
 # SSH keys configuration

@@ -56,8 +56,11 @@ No modules.
 
 | Name | Type |
 | ---- | ---- |
+| [hcloud_firewall.master_kubernetes_firewall](https://registry.terraform.io/providers/hetznercloud/hcloud/latest/docs/resources/firewall) | resource |
+| [hcloud_firewall.worker_kubernetes_firewall](https://registry.terraform.io/providers/hetznercloud/hcloud/latest/docs/resources/firewall) | resource |
 | [hcloud_network.private_network](https://registry.terraform.io/providers/hetznercloud/hcloud/latest/docs/resources/network) | resource |
 | [hcloud_network_subnet.private_network_subnet](https://registry.terraform.io/providers/hetznercloud/hcloud/latest/docs/resources/network_subnet) | resource |
+| [hcloud_placement_group.kubernetes_placement_group](https://registry.terraform.io/providers/hetznercloud/hcloud/latest/docs/resources/placement_group) | resource |
 | [hcloud_server.master_nodes](https://registry.terraform.io/providers/hetznercloud/hcloud/latest/docs/resources/server) | resource |
 | [hcloud_server.worker_nodes](https://registry.terraform.io/providers/hetznercloud/hcloud/latest/docs/resources/server) | resource |
 | [hcloud_ssh_key.admin](https://registry.terraform.io/providers/hetznercloud/hcloud/latest/docs/resources/ssh_key) | resource |
@@ -69,13 +72,16 @@ No modules.
 
 | Name | Description | Type | Default | Required |
 | ---- | ----------- | ---- | ------- | :------: |
+| <a name="input_custom_master_firewall_rules"></a> [custom\_master\_firewall\_rules](#input\_custom\_master\_firewall\_rules) | Additional firewall rules for the master nodes, applied on top of the defaults (inbound 22, 443, 6443 and outbound TCP to anywhere). | <pre>list(object({<br/>    direction       = string<br/>    protocol        = string<br/>    port            = optional(string)<br/>    source_ips      = optional(list(string))<br/>    destination_ips = optional(list(string))<br/>    description     = optional(string)<br/>  }))</pre> | `[]` | no |
+| <a name="input_custom_worker_firewall_rules"></a> [custom\_worker\_firewall\_rules](#input\_custom\_worker\_firewall\_rules) | Additional firewall rules for the worker nodes, applied on top of the defaults (inbound 22, 443 and outbound TCP to anywhere). | <pre>list(object({<br/>    direction       = string<br/>    protocol        = string<br/>    port            = optional(string)<br/>    source_ips      = optional(list(string))<br/>    destination_ips = optional(list(string))<br/>    description     = optional(string)<br/>  }))</pre> | `[]` | no |
 | <a name="input_default_labels"></a> [default\_labels](#input\_default\_labels) | Default labels for resources. Hetzner label keys and values must start and end with an alphanumeric character and may only contain letters, digits, `-`, `_` and `.` (max 63 characters). Values may also be empty. | `map(string)` | <pre>{<br/>  "Confidentiality": "C3",<br/>  "Project": "hetzner-kubernetes"<br/>}</pre> | no |
+| <a name="input_kube_api_source_ips"></a> [kube\_api\_source\_ips](#input\_kube\_api\_source\_ips) | Networks allowed to reach the Kubernetes API on port 6443 from outside the cluster. Nodes themselves join over the private network and are always allowed. | `list(string)` | <pre>[<br/>  "0.0.0.0/0",<br/>  "::/0"<br/>]</pre> | no |
+| <a name="input_master_node_type"></a> [master\_node\_type](#input\_master\_node\_type) | Master node type | `string` | `"cx23"` | no |
 | <a name="input_master_nodes_number"></a> [master\_nodes\_number](#input\_master\_nodes\_number) | Number of master nodes in Cluster | `number` | `1` | no |
 | <a name="input_node_enable_ipv4"></a> [node\_enable\_ipv4](#input\_node\_enable\_ipv4) | Kubernetes cluster use IPv4 networking | `bool` | `true` | no |
 | <a name="input_node_enable_ipv6"></a> [node\_enable\_ipv6](#input\_node\_enable\_ipv6) | Kubernetes cluster use IPv6 networking | `bool` | `true` | no |
-| <a name="input_node_image"></a> [node\_image](#input\_node\_image) | Kubernetes cluster node image | `string` | `"ubuntu-24.04"` | no |
+| <a name="input_node_image"></a> [node\_image](#input\_node\_image) | Kubernetes cluster node image | `string` | `"ubuntu-26.04"` | no |
 | <a name="input_node_location"></a> [node\_location](#input\_node\_location) | Kubernetes cluster node location | `string` | `"fsn1"` | no |
-| <a name="input_node_type"></a> [node\_type](#input\_node\_type) | Kubernetes cluster node type | `string` | `"cax11"` | no |
 | <a name="input_private_network_ip_range"></a> [private\_network\_ip\_range](#input\_private\_network\_ip\_range) | Private network IP range | `string` | `"10.0.0.0/16"` | no |
 | <a name="input_private_network_subnet_ip_range"></a> [private\_network\_subnet\_ip\_range](#input\_private\_network\_subnet\_ip\_range) | Private network subnet IP range | `string` | `"10.0.1.0/24"` | no |
 | <a name="input_private_network_type"></a> [private\_network\_type](#input\_private\_network\_type) | Private network type | `string` | `"cloud"` | no |
@@ -85,6 +91,9 @@ No modules.
 | <a name="input_ssh_key_rsa_bits"></a> [ssh\_key\_rsa\_bits](#input\_ssh\_key\_rsa\_bits) | Key size of the generated SSH key pairs. Only used when ssh\_key\_algorithm is RSA. | `number` | `4096` | no |
 | <a name="input_ssh_keys"></a> [ssh\_keys](#input\_ssh\_keys) | Optional names, IDs or fingerprints of SSH keys that already exist in the Hetzner project. They are installed on the nodes' root user and authorised for the `cluster` user, in addition to `ssh_public_key`. | `list(string)` | `[]` | no |
 | <a name="input_ssh_public_key"></a> [ssh\_public\_key](#input\_ssh\_public\_key) | Public SSH key of your own machine. It is uploaded to the Hetzner project and installed on the root and cluster users of every node. Leave unset to rely on `ssh_keys` instead. | `string` | `null` | no |
+| <a name="input_ssh_source_ips"></a> [ssh\_source\_ips](#input\_ssh\_source\_ips) | Networks allowed to reach SSH on the nodes. Defaults to the whole internet; narrow it to your own address where you can. | `list(string)` | <pre>[<br/>  "0.0.0.0/0",<br/>  "::/0"<br/>]</pre> | no |
+| <a name="input_use_placement_group"></a> [use\_placement\_group](#input\_use\_placement\_group) | If true it uses Placement Group, which spread nodes on different physical machines. It decreaded the probability that some instances might fail together | `bool` | `true` | no |
+| <a name="input_worker_node_type"></a> [worker\_node\_type](#input\_worker\_node\_type) | Worker node type | `string` | `"cx23"` | no |
 | <a name="input_worker_nodes_number"></a> [worker\_nodes\_number](#input\_worker\_nodes\_number) | Number of worker nodes in Cluster | `number` | `2` | no |
 
 ## Outputs

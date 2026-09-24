@@ -3,9 +3,12 @@ resource "hcloud_server" "master_nodes" {
 
   name        = "master-node-${count.index}"
   image       = var.node_image
-  server_type = var.node_type
+  server_type = var.master_node_type
   location    = var.node_location
   ssh_keys    = local.node_ssh_keys
+
+  placement_group_id = var.use_placement_group ? hcloud_placement_group.kubernetes_placement_group[0].id : null
+  firewall_ids       = [hcloud_firewall.master_kubernetes_firewall.id]
 
   public_net {
     ipv4_enabled = var.node_enable_ipv4

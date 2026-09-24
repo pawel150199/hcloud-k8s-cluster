@@ -4,9 +4,10 @@ module "hcloud_kubernetes_cluster" {
   worker_nodes_number = 2
   master_nodes_number = 1
 
-  node_image    = "ubuntu-24.04"
-  node_type     = "cax11"
-  node_location = "fsn1"
+  node_image       = "ubuntu-24.04"
+  master_node_type = "cax11"
+  worker_node_type = "cax11"
+  node_location    = "fsn1"
 
   node_enable_ipv4 = true
   node_enable_ipv6 = true

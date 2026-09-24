@@ -1,3 +1,4 @@
+# Network
 resource "hcloud_network" "private_network" {
   name     = "kubernetes-cluster"
   ip_range = var.private_network_ip_range
@@ -9,4 +10,12 @@ resource "hcloud_network_subnet" "private_network_subnet" {
   network_id   = hcloud_network.private_network.id
   network_zone = var.private_network_zone
   ip_range     = var.private_network_subnet_ip_range
+}
+
+# Placement Group
+resource "hcloud_placement_group" "kubernetes_placement_group" {
+  count  = var.use_placement_group ? 1 : 0
+  name   = "kubernetes-placement-group"
+  type   = "spread"
+  labels = var.default_labels
 }
