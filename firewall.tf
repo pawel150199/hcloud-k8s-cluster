@@ -8,10 +8,6 @@ locals {
   # these rules are scoped to it instead of the whole internet.
   cluster_source_ips = [var.private_network_ip_range]
 
-  # Every element carries the full attribute set, including the ones it does not
-  # use. A list whose objects differ in shape becomes a tuple, and reading an
-  # attribute that is merely absent on one element fails at plan time.
-
   # Ports every k3s node needs from the other nodes, whatever its role.
   # 8472/UDP is the Flannel VXLAN backend k3s uses by default; without it nodes
   # come up Ready but pods on different nodes cannot reach each other.

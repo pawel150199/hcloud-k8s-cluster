@@ -149,7 +149,6 @@ ssh -i ./master_key cluster@"$(terraform output -raw master_node_ip)"
 | `worker_nodes_number` | `1`–`N` | Scale by changing this and re-applying |
 | `master_nodes_number` | `1`, `3`, `5`, `7` | `1` is a single control plane on SQLite. Above 1 the masters form an HA control plane on embedded etcd, which needs a quorum, so the value must be odd |
 | `ssh_key_algorithm` | `ED25519`, `RSA`, `ECDSA` | Algorithm of the key pair the module generates for node-to-node access |
-| `use_control_plane_load_balancer` | `true`, `false` | With several masters, puts a load balancer in front of the API so the workers do not depend on one master. Ignored when `master_nodes_number` is `1` |
 
 ### Scaling notes
 

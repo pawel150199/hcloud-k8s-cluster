@@ -14,9 +14,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
    single-node clusters rather than one HA cluster, and the `2379-2380/TCP`
    firewall rule guarded an etcd that never started.
  - `hcloud_load_balancer.control_plane` in front of the Kubernetes API, created
-   when the control plane is HA. Agents join through it instead of through a
-   hardcoded first master, which was a single point of failure regardless of how
-   many masters existed. Controlled by `use_control_plane_load_balancer`,
+   whenever the control plane is HA — it follows `master_nodes_number` and has
+   no flag of its own. Agents join through it instead of through a hardcoded
+   first master, which was a single point of failure regardless of how many
+   masters existed. Its type and whether it gets a public listener are set by
    `control_plane_load_balancer_type` and `control_plane_load_balancer_public`.
    The load balancer's addresses are added to the API server's `--tls-san`.
  - `random_password.k3s_token`, a join token shared by every node, exposed as

@@ -60,12 +60,10 @@ locals {
   # are handed out from the start of the range.
   control_plane_lb_private_ip = cidrhost(var.private_network_subnet_ip_range, floor(local.subnet_host_count) - 2)
 
-  use_control_plane_lb = local.ha_control_plane && var.use_control_plane_load_balancer
-
   # What the agents join through. With several masters that is the load
   # balancer, so losing one master does not strand the workers; with a single
-  # master there is nothing to balance.
-  control_plane_endpoint = local.use_control_plane_lb ? local.control_plane_lb_private_ip : local.master_node_private_ips[0]
+  # master there is nothing to balance and they join that master directly.
+  control_plane_endpoint = local.ha_control_plane ? local.control_plane_lb_private_ip : local.master_node_private_ips[0]
 
   # Roles are labelled so the load balancer can select its targets by label
   # instead of by server ID. See the comment on hcloud_load_balancer_target.
@@ -81,7 +79,7 @@ locals {
   control_plane_lb_public_ips = var.control_plane_load_balancer_public ? hcloud_load_balancer.control_plane[*].ipv4 : []
 
   master_tls_sans = concat(
-    local.use_control_plane_lb ? [local.control_plane_lb_private_ip] : [],
+    local.ha_control_plane ? [local.control_plane_lb_private_ip] : [],
     local.control_plane_lb_public_ips,
   )
 }

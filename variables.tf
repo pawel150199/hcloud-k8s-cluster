@@ -104,22 +104,19 @@ variable "master_nodes_number" {
 }
 
 # Control plane load balancer
-variable "use_control_plane_load_balancer" {
-  type        = bool
-  description = "Put a load balancer in front of the Kubernetes API and have the workers join through it. Only takes effect when `master_nodes_number` is greater than 1; a single master has nothing to balance."
-  default     = true
-}
-
 variable "control_plane_load_balancer_type" {
   type        = string
   description = "Hetzner load balancer type used for the Kubernetes API."
   default     = "lb11"
 }
 
+# Access from outside private network will be configured to specific public worker node address
+# when it is configured to false. When this parameter is configured to true the LB Public IP 
+# can be configured in kubeconfig file
 variable "control_plane_load_balancer_public" {
   type        = bool
   description = "Expose the Kubernetes API load balancer on a public address. Off by default: Hetzner firewalls do not apply to load balancers, so a public listener would bypass `kube_api_source_ips`. With it off the load balancer serves the private network only and `kubectl` from outside goes to a master's own public address."
-  default     = false
+  default     = false 
 }
 
 # Placement Group

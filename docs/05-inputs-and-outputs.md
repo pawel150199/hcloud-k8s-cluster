@@ -11,7 +11,6 @@ Full reference for the module's variables (`variables.tf`) and outputs
 | --- | --- | --- | --- |
 | `master_nodes_number` | `number` | `1` | Number of master (k3s server) nodes. Must be `1`, `3`, `5` or `7`; above 1 the masters form an HA control plane on embedded etcd |
 | `worker_nodes_number` | `number` | `2` | Number of worker (k3s agent) nodes |
-| `use_control_plane_load_balancer` | `bool` | `true` | Load balancer in front of the API, used by the workers to join. Only applies when `master_nodes_number` > 1 |
 | `control_plane_load_balancer_type` | `string` | `"lb11"` | Hetzner load balancer type for the API |
 | `control_plane_load_balancer_public` | `bool` | `false` | Give the API load balancer a public listener. Off by default, because Hetzner firewalls do not apply to load balancers and a public listener would bypass `kube_api_source_ips` |
 
