@@ -4,6 +4,70 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.2.0] - 2026-09-25
+
+### Added
+ - HA control plane. `master_nodes_number` above 1 now actually builds one: the
+   first server gets `--cluster-init` and the rest join it with `--server`, so
+   the masters share one embedded-etcd cluster. Previously every master ran a
+   standalone `k3s server` on its own SQLite database, which produced N separate
+   single-node clusters rather than one HA cluster, and the `2379-2380/TCP`
+   firewall rule guarded an etcd that never started.
+ - `hcloud_load_balancer.control_plane` in front of the Kubernetes API, created
+   when the control plane is HA. Agents join through it instead of through a
+   hardcoded first master, which was a single point of failure regardless of how
+   many masters existed. Controlled by `use_control_plane_load_balancer`,
+   `control_plane_load_balancer_type` and `control_plane_load_balancer_public`.
+   The load balancer's addresses are added to the API server's `--tls-san`.
+ - `random_password.k3s_token`, a join token shared by every node, exposed as
+   the sensitive `cluster_token` output for adding nodes by hand.
+ - Retries and staggering in both nodes' `runcmd`. The k3s installer is now
+   downloaded to a file before it is run, because `curl ... | sh` reports the
+   exit status of `sh`, which succeeds on empty input — a failed download looked
+   like a successful install. Worker joins are spread over the first minute
+   rather than arriving in the same second, and additional masters wait for the
+   initialising server before joining etcd.
+ - `master_nodes_private_ips`, `worker_nodes_private_ips`,
+   `control_plane_endpoint` and `control_plane_load_balancer_ipv4` outputs.
+ - Validation on `master_nodes_number` (must be 1, 3, 5 or 7 — embedded etcd
+   forms a quorum) and on `worker_nodes_number` (a whole number, zero or more).
+ - `check` blocks warning when the cluster does not fit in
+   `private_network_subnet_ip_range`, or exceeds the 100 servers Hetzner
+   attaches to a single network.
+
+### Changed
+ - **Breaking:** placement groups are sharded. A Hetzner placement group holds
+   at most ten servers, so a single group failed at apply time with
+   `placement_group_full` on the eleventh node. `hcloud_placement_group` now has
+   `count = ceil(nodes / 10)` and its names carry the index, so the existing
+   group is replaced.
+ - **Breaking:** the agents no longer SSH into a master to read the k3s
+   node-token off disk; they join with the shared token instead. The old path
+   had no retry around the SSH call, and an empty token still fell through to
+   the installer, so at scale workers would silently fail to join.
+   `tls_private_key.master_node` existed only for that fetch and is removed,
+   which also takes the control plane's private key off every worker.
+ - **Breaking:** nodes carry a `role` label (`master`/`worker`), which the load
+   balancer uses to select its targets.
+ - `user_data` changed for every node, so masters and workers are replaced.
+
+### Fixed
+ - Documentation no longer tells you to keep `master_nodes_number` at `1`; the
+   scaling limits that do apply (placement groups, servers per network, project
+   quota, API rate limit, control plane sizing) are written down instead.
+ - "Applying a large cluster" in the operations guide: past roughly 30 nodes,
+   `terraform apply` and `terraform destroy` need `-parallelism=5`. A Hetzner
+   project allows 3600 API requests per hour and each server costs several, so
+   the default concurrency of ten can exhaust the budget mid-apply and leave
+   servers half-created. It is a CLI flag, so the module cannot carry it;
+   cross-referenced from the README and the usage example.
+ - `master_node_type` keeps its `cx23` default but now carries a note on why
+   that is a small-cluster value: etcd commits every write to disk before
+   acknowledging it, so shared-vCPU jitter shows up as missed raft heartbeats
+   and leader elections well before the machine looks busy.
+ - "Rotating the node SSH keys" named `tls_private_key.master_node`, which this
+   release removes.
+
 ## [0.1.7] - 2026-09-24
 
 ### Added

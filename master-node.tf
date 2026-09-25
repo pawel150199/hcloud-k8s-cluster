@@ -7,7 +7,7 @@ resource "hcloud_server" "master_nodes" {
   location    = var.node_location
   ssh_keys    = local.node_ssh_keys
 
-  placement_group_id = var.use_placement_group ? hcloud_placement_group.kubernetes_placement_group[0].id : null
+  placement_group_id = var.use_placement_group ? hcloud_placement_group.kubernetes_placement_group[floor(count.index / local.placement_group_capacity)].id : null
   firewall_ids       = [hcloud_firewall.master_kubernetes_firewall.id]
 
   public_net {
@@ -32,7 +32,7 @@ users:
   - default
   - name: cluster
     ssh_authorized_keys:
-      ${indent(6, trimspace(yamlencode(local.master_authorized_keys)))}
+      ${indent(6, trimspace(yamlencode(local.admin_authorized_keys)))}
     sudo: ALL=(ALL) NOPASSWD:ALL
     shell: /bin/bash
 
@@ -65,14 +65,30 @@ runcmd:
   - for i in $(seq 1 60); do PRIVATE_IFACE=$(ip -4 -o addr show | grep " ${local.master_node_private_ips[count.index]}/" | awk '{ print $2 }'); [ -n "$PRIVATE_IFACE" ] && break; sleep 2; done
   - if [ -z "$PRIVATE_IFACE" ]; then echo "private address ${local.master_node_private_ips[count.index]} never came up, aborting k3s install" >&2; exit 1; fi
   - PUBLIC_IP=$(curl -sf http://169.254.169.254/hetzner/v1/metadata/public-ipv4 || true)
-  - K3S_ARGS="server --disable traefik --node-ip ${local.master_node_private_ips[count.index]} --advertise-address ${local.master_node_private_ips[count.index]} --flannel-iface $PRIVATE_IFACE --tls-san ${local.master_node_private_ips[count.index]}"
+  - K3S_ARGS="server --disable traefik --node-ip ${local.master_node_private_ips[count.index]} --advertise-address ${local.master_node_private_ips[count.index]} --flannel-iface $PRIVATE_IFACE --tls-san ${local.master_node_private_ips[count.index]}%{for san in local.master_tls_sans} --tls-san ${san}%{endfor}"
   - if [ -n "$PUBLIC_IP" ]; then K3S_ARGS="$K3S_ARGS --tls-san $PUBLIC_IP"; fi
-  - curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="$K3S_ARGS" sh -
+%{~if local.ha_control_plane}
+%{~if count.index == 0}
+  # The first server initialises the embedded etcd cluster. Without this flag
+  # every server comes up standalone on its own SQLite database, which is one
+  # cluster per master rather than one cluster.
+  - K3S_ARGS="$K3S_ARGS --cluster-init"
+%{~else}
+  # etcd admits members one at a time, so the joins are staggered and each one
+  # waits for the initialising server to answer before it starts.
+  - sleep ${count.index * 20}
+  - for i in $(seq 1 180); do curl -skf --max-time 5 https://${local.master_node_private_ips[0]}:6443/ping > /dev/null && break; sleep 5; done
+  - K3S_ARGS="$K3S_ARGS --server https://${local.master_node_private_ips[0]}:6443"
+%{~endif}
+%{~endif}
+  # Retried, and the installer is downloaded before it is run: a pipe into sh
+  # succeeds even when the download failed, and a large cluster bootstrapping at
+  # once does see throttled downloads.
+  - for i in $(seq 1 10); do curl -sfL https://get.k3s.io -o /tmp/k3s-install.sh && INSTALL_K3S_VERSION=${var.k3s_version} INSTALL_K3S_EXEC="$K3S_ARGS" K3S_TOKEN=${random_password.k3s_token.result} sh /tmp/k3s-install.sh && break; sleep 15; done
   - chown cluster:cluster /etc/rancher/k3s/k3s.yaml
-  - chown cluster:cluster /var/lib/rancher/k3s/server/node-token
 EOF
 
-  labels = var.default_labels
+  labels = local.master_labels
 
   depends_on = [hcloud_network_subnet.private_network_subnet]
 }

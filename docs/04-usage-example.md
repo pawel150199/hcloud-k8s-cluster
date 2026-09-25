@@ -147,7 +147,30 @@ ssh -i ./master_key cluster@"$(terraform output -raw master_node_ip)"
 | `node_location` | `fsn1`, `nbg1`, `hel1`, `ash`, `hil` | Keep nodes in one location for low-latency private networking |
 | `node_image` | `ubuntu-24.04`, `debian-12` | cloud-init assumes an `apt`-based image |
 | `worker_nodes_number` | `1`–`N` | Scale by changing this and re-applying |
-| `master_nodes_number` | `1` | Single control plane; workers join the first master, so keep this at `1` |
-| `ssh_key_algorithm` | `ED25519`, `RSA`, `ECDSA` | Algorithm of the key pairs the module generates for the nodes |
+| `master_nodes_number` | `1`, `3`, `5`, `7` | `1` is a single control plane on SQLite. Above 1 the masters form an HA control plane on embedded etcd, which needs a quorum, so the value must be odd |
+| `ssh_key_algorithm` | `ED25519`, `RSA`, `ECDSA` | Algorithm of the key pair the module generates for node-to-node access |
+| `use_control_plane_load_balancer` | `true`, `false` | With several masters, puts a load balancer in front of the API so the workers do not depend on one master. Ignored when `master_nodes_number` is `1` |
+
+### Scaling notes
+
+Going from a single master to an HA control plane changes the first master's
+cloud-init, which replaces the server and therefore rebuilds the cluster. Decide
+on the control plane size before the first apply if you can.
+
+Large clusters run into limits that are not Terraform's:
+
+| Limit | Value | How the module handles it |
+| --- | --- | --- |
+| Servers per placement group | 10 | Spread over `ceil(nodes / 10)` groups automatically |
+| Servers per network | 100 | A `check` block warns; raising it needs a Hetzner support request |
+| Servers per project | quota, often low by default | Raise it with Hetzner support before applying |
+| API requests | 3600/hour per project | Not handled by the module — pass `-parallelism=5` on apply and destroy, see [Applying a large cluster](06-operations.md#applying-a-large-cluster) |
+
+The default `master_node_type` of `cx23` is sized for a small cluster. A control
+plane serving many workers, or running embedded etcd for an HA setup, wants
+dedicated vCPUs (`ccx*`): etcd commits every write to disk before acknowledging
+it, so the CPU and I/O jitter of a shared-vCPU instance turns into missed raft
+heartbeats and leader elections long before the machine looks busy. The default
+is deliberately left alone — raise it yourself when the cluster grows.
 
 Continue to [Inputs & outputs »](05-inputs-and-outputs.md)

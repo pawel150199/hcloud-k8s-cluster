@@ -24,15 +24,29 @@ variable "private_network_subnet_ip_range" {
 }
 
 # Kubernetes cluster node configuration variables
+variable "k3s_version" {
+  type        = string
+  description = "Version of k3s which is pinned with kubernetes version"
+  default     = "v1.36.4+k3s1"
+}
+
 variable "node_image" {
   type        = string
   description = "Kubernetes cluster node image"
   default     = "ubuntu-26.04"
 }
 
+# Sized for the default cluster, not for a large one. A master runs the API
+# server and, once `master_nodes_number` is above 1, embedded etcd. etcd commits
+# every write to disk before acknowledging it, so it is sensitive to the CPU and
+# I/O jitter of shared-vCPU instances in a way that most workloads are not: on a
+# `cx*` master, raft heartbeats start missing their deadline well before the
+# machine looks busy, and leader elections follow. Somewhere around a few dozen
+# workers this stops being theoretical. Move the control plane to a dedicated
+# vCPU type (`ccx*`) before it gets there; the workers can stay shared.
 variable "master_node_type" {
   type        = string
-  description = "Master node type"
+  description = "Master node type. The default suits a small cluster. A control plane serving many workers, or running embedded etcd for an HA setup, wants dedicated vCPUs (`ccx*`) rather than a shared-vCPU type."
   default     = "cx23"
 }
 
@@ -71,18 +85,47 @@ variable "worker_nodes_number" {
   type        = number
   description = "Number of worker nodes in Cluster"
   default     = 2
+
+  validation {
+    condition     = var.worker_nodes_number >= 0 && floor(var.worker_nodes_number) == var.worker_nodes_number
+    error_message = "worker_nodes_number must be a whole number of zero or more."
+  }
 }
 
 variable "master_nodes_number" {
   type        = number
-  description = "Number of master nodes in Cluster"
+  description = "Number of master nodes in Cluster. Values above 1 build an HA control plane on embedded etcd, which needs a quorum and therefore an odd number of servers."
   default     = 1
+
+  validation {
+    condition     = contains([1, 3, 5, 7], var.master_nodes_number)
+    error_message = "master_nodes_number must be 1, 3, 5 or 7. Embedded etcd forms a quorum, so an even number of servers lowers availability instead of raising it, and beyond seven the write latency of the raft log outweighs the redundancy."
+  }
+}
+
+# Control plane load balancer
+variable "use_control_plane_load_balancer" {
+  type        = bool
+  description = "Put a load balancer in front of the Kubernetes API and have the workers join through it. Only takes effect when `master_nodes_number` is greater than 1; a single master has nothing to balance."
+  default     = true
+}
+
+variable "control_plane_load_balancer_type" {
+  type        = string
+  description = "Hetzner load balancer type used for the Kubernetes API."
+  default     = "lb11"
+}
+
+variable "control_plane_load_balancer_public" {
+  type        = bool
+  description = "Expose the Kubernetes API load balancer on a public address. Off by default: Hetzner firewalls do not apply to load balancers, so a public listener would bypass `kube_api_source_ips`. With it off the load balancer serves the private network only and `kubectl` from outside goes to a master's own public address."
+  default     = false
 }
 
 # Placement Group
 variable "use_placement_group" {
   type        = bool
-  description = "If true it uses Placement Group, which spread nodes on different physical machines. It decreaded the probability that some instances might fail together"
+  description = "If true it uses Placement Groups, which spread nodes over different physical machines so that they are less likely to fail together. A group holds at most ten servers, so a larger cluster is spread over as many groups as it needs."
   default     = true
 }
 
@@ -145,7 +188,7 @@ variable "ssh_public_key" {
 
 variable "ssh_key_algorithm" {
   type        = string
-  description = "Algorithm used for the SSH key pairs generated for the master and worker nodes. One of RSA, ECDSA, ED25519."
+  description = "Algorithm used for the SSH key pair the module generates so the masters can reach the workers. One of RSA, ECDSA, ED25519."
   default     = "ED25519"
 
   validation {
@@ -156,13 +199,13 @@ variable "ssh_key_algorithm" {
 
 variable "ssh_key_rsa_bits" {
   type        = number
-  description = "Key size of the generated SSH key pairs. Only used when ssh_key_algorithm is RSA."
+  description = "Key size of the generated SSH key pair. Only used when ssh_key_algorithm is RSA."
   default     = 4096
 }
 
 variable "ssh_key_ecdsa_curve" {
   type        = string
-  description = "Curve of the generated SSH key pairs. Only used when ssh_key_algorithm is ECDSA."
+  description = "Curve of the generated SSH key pair. Only used when ssh_key_algorithm is ECDSA."
   default     = "P384"
 }
 

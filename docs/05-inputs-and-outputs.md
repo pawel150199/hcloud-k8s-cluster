@@ -9,8 +9,11 @@ Full reference for the module's variables (`variables.tf`) and outputs
 
 | Name | Type | Default | Description |
 | --- | --- | --- | --- |
-| `master_nodes_number` | `number` | `1` | Number of master (k3s server) nodes |
+| `master_nodes_number` | `number` | `1` | Number of master (k3s server) nodes. Must be `1`, `3`, `5` or `7`; above 1 the masters form an HA control plane on embedded etcd |
 | `worker_nodes_number` | `number` | `2` | Number of worker (k3s agent) nodes |
+| `use_control_plane_load_balancer` | `bool` | `true` | Load balancer in front of the API, used by the workers to join. Only applies when `master_nodes_number` > 1 |
+| `control_plane_load_balancer_type` | `string` | `"lb11"` | Hetzner load balancer type for the API |
+| `control_plane_load_balancer_public` | `bool` | `false` | Give the API load balancer a public listener. Off by default, because Hetzner firewalls do not apply to load balancers and a public listener would bypass `kube_api_source_ips` |
 
 ### Node configuration
 
@@ -104,7 +107,9 @@ output "network_cidr" {
 | Master server(s) | `hcloud_server.master_nodes` | `master_nodes_number` |
 | Worker server(s) | `hcloud_server.worker_nodes` | `worker_nodes_number` |
 | Uploaded admin SSH key | `hcloud_ssh_key.admin` | 1, or 0 when `ssh_public_key` is unset |
-| Master node key pair | `tls_private_key.master_node` | 1 |
 | Worker node key pair | `tls_private_key.worker_node` | 1 |
+| Cluster join token | `random_password.k3s_token` | 1 |
+| Placement groups | `hcloud_placement_group.kubernetes_placement_group` | `ceil(nodes / 10)`, or 0 when `use_placement_group` is `false` |
+| API load balancer | `hcloud_load_balancer.control_plane` | 1 when the control plane is HA, else 0 |
 
 Continue to [Operations »](06-operations.md)

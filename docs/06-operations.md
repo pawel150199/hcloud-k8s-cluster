@@ -77,15 +77,49 @@ terraform apply -var 'worker_nodes_number=3'
 kubectl delete node worker-node-3     # remove the stale Node object
 ```
 
-## 6.4 Rotating the node SSH keys
+### Applying a large cluster
 
-The key pairs are Terraform resources, so rotation is a taint + apply. Because
-the keys are baked into `user_data`, **replacing a key replaces the servers** —
-treat it as a cluster rebuild, not an in-place change.
+Past roughly 30 nodes, cap Terraform's concurrency:
 
 ```bash
-terraform plan -replace='tls_private_key.master_node'
-terraform apply -replace='tls_private_key.master_node'
+terraform apply -parallelism=5 -var 'worker_nodes_number=100'
+```
+
+Terraform defaults to ten concurrent resource operations, and each server it
+creates is not one API call but several — create, then poll the action until the
+server is running, then attach the network, then poll again. A hundred servers
+at the default concurrency will spend most of an apply polling, and a Hetzner
+project is limited to **3600 API requests per hour**. Hit that ceiling and the
+provider starts receiving `rate_limit_exceeded` partway through, which leaves
+servers half-created and the state file disagreeing with reality — a far more
+tedious problem than a slow apply.
+
+`-parallelism=5` keeps the request rate inside the budget. The apply takes
+longer in wall-clock terms, but it is the difference between a slow apply and a
+failed one. It is a CLI flag rather than a setting the module can carry, so it
+has to be passed on every apply (and `destroy`) of a large cluster.
+
+Two things to expect regardless of concurrency:
+
+- Nodes join over several minutes, not seconds. Workers deliberately stagger
+  their joins, and an HA control plane admits etcd members one at a time.
+  `terraform apply` returning is not the same as `kubectl get nodes` being
+  complete; watch the latter.
+- A hundred servers of one type in one location can exhaust that location's
+  capacity. `resource_unavailable` from the API means Hetzner has no room for
+  that server type there, not that anything is misconfigured.
+
+## 6.4 Rotating the node SSH keys
+
+The module generates one key pair, `tls_private_key.worker_node`: the workers
+trust its public half and the masters hold its private half, which is how a
+master reaches a worker. It is a Terraform resource, so rotation is a replace +
+apply. Because the key is baked into `user_data`, **replacing it replaces the
+servers** — treat it as a cluster rebuild, not an in-place change.
+
+```bash
+terraform plan -replace='tls_private_key.worker_node'
+terraform apply -replace='tls_private_key.worker_node'
 ```
 
 Rotating your own key is cheap by comparison: change `ssh_public_key` and
@@ -111,6 +145,13 @@ steps, ideally via GitOps:
 
 ```bash
 terraform destroy
+```
+
+A large cluster needs the same concurrency cap as its apply, for the same
+API-rate-limit reason:
+
+```bash
+terraform destroy -parallelism=5
 ```
 
 This removes the servers, subnet, and network. **State lives in S3** and is

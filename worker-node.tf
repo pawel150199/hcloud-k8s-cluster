@@ -1,8 +1,3 @@
-locals {
-  # Private IP of the first master, the address every worker joins through.
-  master_node_private_ip = local.master_node_private_ips[0]
-}
-
 resource "hcloud_server" "worker_nodes" {
   count = var.worker_nodes_number
 
@@ -11,7 +6,7 @@ resource "hcloud_server" "worker_nodes" {
   server_type        = var.worker_node_type
   location           = var.node_location
   ssh_keys           = local.node_ssh_keys
-  placement_group_id = var.use_placement_group ? hcloud_placement_group.kubernetes_placement_group[0].id : null
+  placement_group_id = var.use_placement_group ? hcloud_placement_group.kubernetes_placement_group[floor((var.master_nodes_number + count.index) / local.placement_group_capacity)].id : null
   firewall_ids       = [hcloud_firewall.worker_kubernetes_firewall.id]
 
   public_net {
@@ -56,26 +51,30 @@ write_files:
             match:
               name: "enp*"
             dhcp4: true
-  # Private key of the master key pair, used to read the k3s node-token.
-  - path: /root/.ssh/master_node_key
-    owner: "root:root"
-    permissions: "0600"
-    content: |
-      ${indent(6, trimspace(tls_private_key.master_node.private_key_openssh))}
 
 runcmd:
   - netplan apply
   - apt-get update -y
   - for i in $(seq 1 60); do PRIVATE_IFACE=$(ip -4 -o addr show | grep " ${local.worker_node_private_ips[count.index]}/" | awk '{ print $2 }'); [ -n "$PRIVATE_IFACE" ] && break; sleep 2; done
   - if [ -z "$PRIVATE_IFACE" ]; then echo "private address ${local.worker_node_private_ips[count.index]} never came up, aborting k3s install" >&2; exit 1; fi
-  # wait for the master node to be ready by trying to connect to it
-  - for i in $(seq 1 120); do curl -sk https://${local.master_node_private_ip}:6443/ping > /dev/null && break; sleep 5; done
-  # copy the token from the master node
-  - REMOTE_TOKEN=$(ssh -i /root/.ssh/master_node_key -o StrictHostKeyChecking=accept-new cluster@${local.master_node_private_ip} sudo cat /var/lib/rancher/k3s/server/node-token)
-  # Install k3s worker
-  - curl -sfL https://get.k3s.io | K3S_URL=https://${local.master_node_private_ip}:6443 K3S_TOKEN=$REMOTE_TOKEN INSTALL_K3S_EXEC="--node-ip ${local.worker_node_private_ips[count.index]} --flannel-iface $PRIVATE_IFACE" sh -
+  # Spread the joins of a large worker pool instead of having every node hit the
+  # control plane in the same second.
+  - sleep ${(count.index % 20) * 3}
+  # wait for the control plane to be ready by trying to connect to it
+  - for i in $(seq 1 240); do curl -skf --max-time 5 https://${local.control_plane_endpoint}:6443/ping > /dev/null && break; sleep 5; done
+  # Install k3s worker. The token comes from Terraform, so there is no SSH hop
+  # into a master to read the node-token off disk: that call had no retry, and
+  # an empty token still fell through to the installer, so at scale workers
+  # silently failed to join. Retried, and the installer is downloaded before it
+  # is run, because a pipe into sh succeeds even when the download failed.
+  - for i in $(seq 1 10); do curl -sfL https://get.k3s.io -o /tmp/k3s-install.sh && INSTALL_K3S_VERSION=${var.k3s_version} K3S_URL=https://${local.control_plane_endpoint}:6443 K3S_TOKEN=${random_password.k3s_token.result} INSTALL_K3S_EXEC="--node-ip ${local.worker_node_private_ips[count.index]} --flannel-iface $PRIVATE_IFACE" sh /tmp/k3s-install.sh && break; sleep 15; done
 EOF
-  labels    = var.default_labels
 
-  depends_on = [hcloud_network_subnet.private_network_subnet, hcloud_server.master_nodes]
+  labels = local.worker_labels
+
+  depends_on = [
+    hcloud_network_subnet.private_network_subnet,
+    hcloud_server.master_nodes,
+    hcloud_load_balancer_target.control_plane_masters,
+  ]
 }

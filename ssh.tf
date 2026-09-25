@@ -1,14 +1,11 @@
-# Key pair used by the master node's "cluster" user.
-# Workers receive the matching private key so they can SSH into the master
-# and read the k3s node-token during bootstrap.
-resource "tls_private_key" "master_node" {
-  algorithm   = var.ssh_key_algorithm
-  rsa_bits    = var.ssh_key_rsa_bits
-  ecdsa_curve = var.ssh_key_ecdsa_curve
-}
-
 # Key pair used by the worker nodes' "cluster" user.
-# The master receives the matching private key so it can reach the workers.
+# The masters receive the matching private key so they can reach the workers.
+#
+# There is deliberately no matching pair in the other direction. The workers
+# used to hold the master's private key so that they could SSH in and read the
+# k3s node-token off disk during bootstrap; they now join with a token Terraform
+# generates, so that key had no remaining use and put the control plane's
+# credentials on every worker in the cluster.
 resource "tls_private_key" "worker_node" {
   algorithm   = var.ssh_key_algorithm
   rsa_bits    = var.ssh_key_rsa_bits
@@ -57,12 +54,9 @@ locals {
   # they asked for. Empty entries are dropped so cloud-init stays well-formed.
   admin_authorized_keys = compact(concat([local.admin_public_key], local.existing_public_keys))
 
-  # Keys authorised for the "cluster" user, rendered into cloud-init.
-  master_authorized_keys = concat(
-    local.admin_authorized_keys,
-    [trimspace(tls_private_key.master_node.public_key_openssh)],
-  )
-
+  # Keys authorised for the "cluster" user, rendered into cloud-init. The
+  # masters get the operator's keys only; the workers additionally trust the
+  # generated pair, whose private half lives on the masters.
   worker_authorized_keys = concat(
     local.admin_authorized_keys,
     [trimspace(tls_private_key.worker_node.public_key_openssh)],
