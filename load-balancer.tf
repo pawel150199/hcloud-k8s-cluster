@@ -10,14 +10,6 @@ resource "hcloud_load_balancer" "control_plane" {
   labels             = var.default_labels
 }
 
-resource "hcloud_load_balancer" "control_plane" {
-  count = local.ha_control_plane ? 1 : 0
-
-  name = "kubernetes-control-plane"
-  load_balancer_type = var.control_plane_load_balancer_type
-  location = var.node_location
-  labels = var.default_labels
-}
 resource "hcloud_load_balancer_network" "control_plane" {
   count = local.ha_control_plane ? 1 : 0
 

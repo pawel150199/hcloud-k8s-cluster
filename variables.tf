@@ -111,12 +111,12 @@ variable "control_plane_load_balancer_type" {
 }
 
 # Access from outside private network will be configured to specific public worker node address
-# when it is configured to false. When this parameter is configured to true the LB Public IP 
+# when it is configured to false. When this parameter is configured to true the LB Public IP
 # can be configured in kubeconfig file
 variable "control_plane_load_balancer_public" {
   type        = bool
   description = "Expose the Kubernetes API load balancer on a public address. Off by default: Hetzner firewalls do not apply to load balancers, so a public listener would bypass `kube_api_source_ips`. With it off the load balancer serves the private network only and `kubectl` from outside goes to a master's own public address."
-  default     = false 
+  default     = false
 }
 
 # Placement Group
