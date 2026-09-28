@@ -22,6 +22,14 @@ locals {
     },
     {
       direction       = "in"
+      protocol        = "udp"
+      port            = "41641"
+      source_ips      = local.default_source_ips
+      destination_ips = null
+      description     = "Tailscale connection"
+    },
+    {
+      direction       = "in"
       protocol        = "tcp"
       port            = "10250"
       source_ips      = local.cluster_source_ips

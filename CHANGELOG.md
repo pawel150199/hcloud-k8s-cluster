@@ -4,7 +4,50 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [0.2.0] - 2026-09-25
+## [Unreleased] - 2026-09-28
+
+> Everything under the two `Unreleased` headings is on `master` and not in a tag
+> yet. The last released version is **0.1.14**.
+
+### Added
+ - SSH hardening on every node. cloud-init writes
+   `/etc/ssh/sshd_config.d/ssh-hardening.conf` and reloads sshd:
+   `PermitRootLogin no`, `PasswordAuthentication no`,
+   `KbdInteractiveAuthentication no`, `ChallengeResponseAuthentication no`,
+   `MaxAuthTries 3`, `AllowTcpForwarding no`, `X11Forwarding no`,
+   `AllowAgentForwarding no`, `AllowUsers cluster`.
+   **Breaking for operators:** `cluster` is now the only account sshd accepts,
+   so the keys Hetzner installs on `root` no longer get you in, and `ssh -L`
+   tunnelling to the Kubernetes API is refused. A cluster applied with neither
+   `ssh_public_key` nor `ssh_keys` is unreachable over SSH unless
+   `use_tailscale` is set.
+ - Optional Tailscale support: `use_tailscale` installs Tailscale during
+   cloud-init and runs `tailscale up --ssh` with the pre-authorized
+   `tailscale_auth_key`, joining each node to the tailnet as `master-node-N` /
+   `worker-node-N`. Tailscale SSH bypasses sshd, so it works regardless of the
+   `AllowUsers cluster` restriction and gives an access path that does not
+   depend on the nodes' public addresses. The auth key is rendered into
+   `user_data` and kept in state — use an ephemeral, short-lived key.
+ - `41641/UDP` inbound on both firewalls, so Tailscale can make direct peer
+   connections instead of relaying through DERP. The rule is unconditional.
+ - `extra_tls_sans`: additional names on the API server certificate, on top of
+   the master private IPs, the master public IP and the API load balancer.
+   Needed for any address `kubectl` dials that the module does not know about —
+   a DNS name, or a Tailscale `100.x`/MagicDNS address.
+
+### Changed
+ - Nodes run `package_update: true` and `package_upgrade: true` on first boot,
+   applying pending distribution updates before k3s is installed. This replaces
+   the bare `apt-get update -y` that ran in `runcmd`, and adds a minute or two
+   to the bootstrap.
+
+### Documentation
+ - New `docs/02-architecture.md` §2.7 (node SSH hardening) and §2.8 (Tailscale);
+   access instructions across getting-started, usage and operations rewritten
+   for the `cluster`-only login and the loss of `ssh -L`; inputs/outputs
+   reference brought back in line with `variables.tf` and `outputs.tf`.
+
+## [Unreleased] - 2026-09-25
 
 ### Added
  - HA control plane. `master_nodes_number` above 1 now actually builds one: the

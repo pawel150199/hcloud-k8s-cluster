@@ -81,6 +81,7 @@ locals {
   master_tls_sans = concat(
     local.ha_control_plane ? [local.control_plane_lb_private_ip] : [],
     local.control_plane_lb_public_ips,
+    var.extra_tls_sans
   )
 }
 

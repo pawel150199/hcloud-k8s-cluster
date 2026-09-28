@@ -23,6 +23,8 @@ resource "hcloud_server" "worker_nodes" {
 #cloud-config
 packages:
   - curl
+package_update: true
+package_upgrade: true
 users:
   # 'default' keeps the distro user that carries the Hetzner-provided keys.
   - default
@@ -46,10 +48,29 @@ write_files:
             match:
               name: "enp*"
             dhcp4: true
+  # SSH Hardening
+  - path: /etc/ssh/sshd_config.d/ssh-hardening.conf
+    content: |
+      PermitRootLogin no
+      PasswordAuthentication no
+      Port 22
+      KbdInteractiveAuthentication no
+      ChallengeResponseAuthentication no
+      MaxAuthTries 3
+      AllowTcpForwarding no
+      X11Forwarding no
+      AllowAgentForwarding no
+      AuthorizedKeysFile .ssh/authorized_keys
+      AllowUsers cluster
 
 runcmd:
   - netplan apply
-  - apt-get update -y
+  - systemctl reload ssh
+%{~if var.use_tailscale}
+  # Install and configure tailscale
+  - curl -fsSL https://tailscale.com/install.sh | sh
+  - tailscale up --authkey=${var.tailscale_auth_key} --hostname=worker-node-${count.index} --ssh
+%{~endif}
   - for i in $(seq 1 60); do PRIVATE_IFACE=$(ip -4 -o addr show | grep " ${local.worker_node_private_ips[count.index]}/" | awk '{ print $2 }'); [ -n "$PRIVATE_IFACE" ] && break; sleep 2; done
   - if [ -z "$PRIVATE_IFACE" ]; then echo "private address ${local.worker_node_private_ips[count.index]} never came up, aborting k3s install" >&2; exit 1; fi
   # Spread the joins of a large worker pool.

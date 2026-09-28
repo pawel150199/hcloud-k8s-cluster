@@ -103,6 +103,19 @@ variable "master_nodes_number" {
   }
 }
 
+# Tailscale configuration
+variable "use_tailscale" {
+  description = "Join every node to a Tailscale tailnet on first boot and enable Tailscale SSH. Needs `tailscale_auth_key`. Gives an access path that does not depend on the nodes' public addresses, which matters because sshd is hardened to `AllowUsers cluster` and `PermitRootLogin no`."
+  type        = bool
+  default     = false
+}
+variable "tailscale_auth_key" {
+  description = "Pre-authorized Tailscale key used by nodes to join the tailnet. Required when `use_tailscale` is true; ignored otherwise. It is rendered into the nodes' cloud-init `user_data`, so use a short-lived, ephemeral, pre-approved key and treat the Terraform state as a secret."
+  type        = string
+  sensitive   = true
+  default     = "null"
+}
+
 # Control plane load balancer
 variable "control_plane_load_balancer_type" {
   type        = string
@@ -204,6 +217,12 @@ variable "ssh_key_ecdsa_curve" {
   type        = string
   description = "Curve of the generated SSH key pair. Only used when ssh_key_algorithm is ECDSA."
   default     = "P384"
+}
+
+variable "extra_tls_sans" {
+  description = "Additional TLS SANs for the Kubernetes API server certificate, on top of the master private IPs, its public IP and the API load balancer. Add the DNS name or Tailscale address you reach the API through, otherwise kubectl rejects the certificate."
+  type        = list(string)
+  default     = []
 }
 
 variable "default_labels" {

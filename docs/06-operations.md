@@ -4,36 +4,68 @@ Day-2 tasks for a running cluster.
 
 ## 6.1 Accessing the cluster
 
-First materialise the generated key for the `cluster` user:
+You log in as the **`cluster`** user with the key you gave the module
+(`ssh_public_key` / `ssh_keys`). `root` logins are refused, as are password
+logins — see [Architecture §2.7](02-architecture.md#27-node-ssh-hardening).
 
 ```bash
-terraform output -raw master_node_ssh_private_key > ./master_key
-chmod 600 ./master_key
+terraform output master_nodes_ips
+ssh cluster@<master_public_ip>            # sudo is passwordless
 ```
 
-Then copy the kubeconfig off the master and repoint it at the master's reachable
-IP:
+With `use_tailscale = true`, the same node answers on its tailnet name and
+Tailscale SSH authorises you from the tailnet ACLs instead of `authorized_keys`:
 
 ```bash
-scp -i ./master_key cluster@<master_public_ip>:/etc/rancher/k3s/k3s.yaml ~/.kube/config
+ssh cluster@master-node-0
+```
+
+Copy the kubeconfig off the master and repoint it at the master's reachable IP:
+
+```bash
+scp cluster@<master_public_ip>:/etc/rancher/k3s/k3s.yaml ~/.kube/config
 sed -i '' "s/127.0.0.1/<master_public_ip>/" ~/.kube/config   # macOS sed
 kubectl get nodes -o wide
 ```
 
-For a private-only setup, tunnel to the API server instead of exposing it:
+Whatever address you substitute must be covered by the API server certificate.
+The masters' private and public IPs and the API load balancer are covered
+automatically; anything else — a DNS name, a Tailscale address — has to be
+listed in `extra_tls_sans` **before** the apply, because the certificate is
+generated at install time.
+
+> **`ssh -L` no longer works.** The hardening drop-in sets
+> `AllowTcpForwarding no`, so tunnelling to the API server over SSH is refused
+> by the server. For a private-only control plane use one of these instead:
+>
+> - Tailscale (`use_tailscale = true`) and a kubeconfig pointing at the node's
+>   tailnet address, with that address in `extra_tls_sans`;
+> - `kube_api_source_ips` narrowed to your own address, with `kubectl` going
+>   straight to a master's public IP;
+> - `kubectl --server` through a bastion inside the private network.
+>
+> If you would rather keep the tunnel, drop `AllowTcpForwarding no` from the
+> `write_files` block in `master-node.tf` and `worker-node.tf` — note that
+> changing `user_data` replaces the servers.
+
+Workers are reached the same way:
 
 ```bash
-ssh -i ./master_key -L 6443:<master_private_ip>:6443 cluster@<master_public_ip>
-# then use a kubeconfig pointing at https://127.0.0.1:6443
+terraform output worker_nodes_ips
+ssh cluster@<worker_public_ip>
 ```
 
-Workers are reachable the same way, with the worker key pair:
+From a master you can also reach a worker with the key the module generated and
+placed there:
 
 ```bash
-terraform output -raw worker_node_ssh_private_key > ./worker_key
-chmod 600 ./worker_key
-ssh -i ./worker_key cluster@<worker_public_ip>
+sudo ssh -i /root/.ssh/worker_node_key cluster@<worker_private_ip>
 ```
+
+> **Too many keys in your agent.** `MaxAuthTries 3` means sshd closes the
+> connection after three failed offers, and your agent offers its keys before
+> the one you pass with `-i`. Add `-o IdentitiesOnly=yes` if you are refused
+> with a key you know is authorised.
 
 ## 6.2 Verifying bootstrap
 
@@ -127,6 +159,20 @@ re-apply. That also recreates the nodes (cloud-init `user_data` changes), so for
 day-to-day access prefer adding keys to `~cluster/.ssh/authorized_keys` on the
 running nodes.
 
+### Rotating the Tailscale auth key
+
+`tailscale_auth_key` is only read once, when a node first joins the tailnet, and
+a node that is already up stays authenticated on its own node key. Changing the
+variable therefore has no effect on running nodes — but it does change
+`user_data`, so Terraform will want to replace every server. Revoke the key in
+the Tailscale admin console after the apply instead, and use an ephemeral key so
+the credential in state expires on its own.
+
+To take a node off the tailnet without rebuilding it, delete it in the Tailscale
+admin console (or run `sudo tailscale logout` on the node). Make sure you still
+have SSH access by another route first — with no `ssh_public_key` and no
+`ssh_keys`, Tailscale SSH is the only way in.
+
 ## 6.5 What to deploy next
 
 The module deliberately ships a bare cluster (Traefik is disabled). Typical next
@@ -140,6 +186,20 @@ steps, ideally via GitOps:
 | Storage | [hcloud-csi-driver](https://github.com/hetznercloud/csi-driver) for Hetzner Volumes |
 | GitOps | Argo CD or Flux |
 | Monitoring | kube-prometheus-stack (Prometheus + Grafana + Alertmanager) |
+| Remote access | Tailscale is installed by the module when `use_tailscale` is set; a [Tailscale Kubernetes operator](https://tailscale.com/kb/1236/kubernetes-operator) on top exposes Services on the tailnet |
+
+### Patching
+
+`package_update` and `package_upgrade` in cloud-init only cover the **first
+boot** — they are not a patching policy. A long-lived node still needs
+`unattended-upgrades` or a rebuild cadence of your own. Rebuilding is the
+cleaner option here: a node is disposable, and replacing it re-runs cloud-init
+against a fresh image.
+
+```bash
+kubectl drain worker-node-1 --ignore-daemonsets --delete-emptydir-data
+terraform apply -replace='hcloud_server.worker_nodes[1]'
+```
 
 ## 6.6 Teardown
 
@@ -161,4 +221,4 @@ unaffected — delete the state object separately if you're retiring the workspa
 > Hetzner Volumes and Load Balancers created *inside* the cluster by controllers
 > are **not** managed by this module and may need separate cleanup.
 
-Back to the [documentation index](README.md).
+Back to the [documentation index](index.md).

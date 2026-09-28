@@ -8,7 +8,7 @@ In Hetzner community I found similar topic: https://community.hetzner.com/tutori
 
 ## Documentation
 
-Full module documentation lives in [`docs/`](docs/README.md), with Mermaid
+Full module documentation lives in [`docs/`](docs/index.md), with Mermaid
 diagrams (architecture, network topology, bootstrap sequence) and a usage
 example. It can also be exported to PDF:
 
@@ -24,6 +24,13 @@ cd docs && make        # renders docs/pdf/*.pdf (requires md-to-pdf + internet)
 | [Usage example](docs/04-usage-example.md) | Complete example configuration |
 | [Inputs & outputs](docs/05-inputs-and-outputs.md) | Variable and output reference |
 | [Operations](docs/06-operations.md) | kubeconfig, scaling, teardown |
+
+> **Node access:** nodes harden sshd on first boot — you log in as the
+> `cluster` user (passwordless `sudo`), `root` and password logins are refused,
+> and `ssh -L` port forwarding is disabled. Supply `ssh_public_key` or
+> `ssh_keys`, or set `use_tailscale = true` with a `tailscale_auth_key` and use
+> Tailscale SSH. See [SSH hardening](docs/02-architecture.md#27-node-ssh-hardening)
+> and [Tailscale](docs/02-architecture.md#28-tailscale).
 
 > **Applying a large cluster:** past roughly 30 nodes, pass `-parallelism=5` to
 > `terraform apply` and `terraform destroy`. A Hetzner project allows 3600 API
@@ -89,6 +96,7 @@ No modules.
 | <a name="input_custom_master_firewall_rules"></a> [custom\_master\_firewall\_rules](#input\_custom\_master\_firewall\_rules) | Additional firewall rules for the master nodes, applied on top of the defaults (inbound 22, 443, 6443 and outbound TCP to anywhere). | <pre>list(object({<br/>    direction       = string<br/>    protocol        = string<br/>    port            = optional(string)<br/>    source_ips      = optional(list(string))<br/>    destination_ips = optional(list(string))<br/>    description     = optional(string)<br/>  }))</pre> | `[]` | no |
 | <a name="input_custom_worker_firewall_rules"></a> [custom\_worker\_firewall\_rules](#input\_custom\_worker\_firewall\_rules) | Additional firewall rules for the worker nodes, applied on top of the defaults (inbound 22, 443 and outbound TCP to anywhere). | <pre>list(object({<br/>    direction       = string<br/>    protocol        = string<br/>    port            = optional(string)<br/>    source_ips      = optional(list(string))<br/>    destination_ips = optional(list(string))<br/>    description     = optional(string)<br/>  }))</pre> | `[]` | no |
 | <a name="input_default_labels"></a> [default\_labels](#input\_default\_labels) | Default labels for resources. Hetzner label keys and values must start and end with an alphanumeric character and may only contain letters, digits, `-`, `_` and `.` (max 63 characters). Values may also be empty. | `map(string)` | <pre>{<br/>  "Confidentiality": "C3",<br/>  "Project": "hetzner-kubernetes"<br/>}</pre> | no |
+| <a name="input_extra_tls_sans"></a> [extra\_tls\_sans](#input\_extra\_tls\_sans) | Additional TLS SANs for the Kubernetes API server certificate, on top of the master private IPs, its public IP and the API load balancer. Add the DNS name or Tailscale address you reach the API through, otherwise kubectl rejects the certificate. | `list(string)` | `[]` | no |
 | <a name="input_k3s_version"></a> [k3s\_version](#input\_k3s\_version) | Version of k3s which is pinned with kubernetes version | `string` | `"v1.36.4+k3s1"` | no |
 | <a name="input_kube_api_source_ips"></a> [kube\_api\_source\_ips](#input\_kube\_api\_source\_ips) | Networks allowed to reach the Kubernetes API on port 6443 from outside the cluster. Nodes themselves join over the private network and are always allowed. | `list(string)` | <pre>[<br/>  "0.0.0.0/0",<br/>  "::/0"<br/>]</pre> | no |
 | <a name="input_master_node_type"></a> [master\_node\_type](#input\_master\_node\_type) | Master node type. The default suits a small cluster. A control plane serving many workers, or running embedded etcd for an HA setup, wants dedicated vCPUs (`ccx*`) rather than a shared-vCPU type. | `string` | `"cx23"` | no |
@@ -107,7 +115,9 @@ No modules.
 | <a name="input_ssh_keys"></a> [ssh\_keys](#input\_ssh\_keys) | Optional names, IDs or fingerprints of SSH keys that already exist in the Hetzner project. They are installed on the nodes' root user and authorised for the `cluster` user, in addition to `ssh_public_key`. | `list(string)` | `[]` | no |
 | <a name="input_ssh_public_key"></a> [ssh\_public\_key](#input\_ssh\_public\_key) | Public SSH key of your own machine. It is uploaded to the Hetzner project and installed on the root and cluster users of every node. Leave unset to rely on `ssh_keys` instead. | `string` | `null` | no |
 | <a name="input_ssh_source_ips"></a> [ssh\_source\_ips](#input\_ssh\_source\_ips) | Networks allowed to reach SSH on the nodes. Defaults to the whole internet; narrow it to your own address where you can. | `list(string)` | <pre>[<br/>  "0.0.0.0/0",<br/>  "::/0"<br/>]</pre> | no |
+| <a name="input_tailscale_auth_key"></a> [tailscale\_auth\_key](#input\_tailscale\_auth\_key) | Pre-authorized Tailscale key used by nodes to join the tailnet. Required when `use_tailscale` is true; ignored otherwise. It is rendered into the nodes' cloud-init `user_data`, so use a short-lived, ephemeral, pre-approved key and treat the Terraform state as a secret. | `string` | `"null"` | no |
 | <a name="input_use_placement_group"></a> [use\_placement\_group](#input\_use\_placement\_group) | If true it uses Placement Groups, which spread nodes over different physical machines so that they are less likely to fail together. A group holds at most ten servers, so a larger cluster is spread over as many groups as it needs. | `bool` | `true` | no |
+| <a name="input_use_tailscale"></a> [use\_tailscale](#input\_use\_tailscale) | Join every node to a Tailscale tailnet on first boot and enable Tailscale SSH. Needs `tailscale_auth_key`. Gives an access path that does not depend on the nodes' public addresses, which matters because sshd is hardened to `AllowUsers cluster` and `PermitRootLogin no`. | `bool` | `false` | no |
 | <a name="input_worker_node_type"></a> [worker\_node\_type](#input\_worker\_node\_type) | Worker node type | `string` | `"cx23"` | no |
 | <a name="input_worker_nodes_number"></a> [worker\_nodes\_number](#input\_worker\_nodes\_number) | Number of worker nodes in Cluster | `number` | `2` | no |
 

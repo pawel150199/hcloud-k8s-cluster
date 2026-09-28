@@ -24,6 +24,8 @@ resource "hcloud_server" "master_nodes" {
 #cloud-config
 packages:
   - curl
+package_update: true
+package_upgrade: true
 users:
   # 'default' keeps the distro user that carries the Hetzner-provided keys.
   - default
@@ -52,10 +54,24 @@ write_files:
     permissions: "0600"
     content: |
       ${indent(6, trimspace(tls_private_key.worker_node.private_key_openssh))}
+  # SSH Hardening
+  - path: /etc/ssh/sshd_config.d/ssh-hardening.conf
+    content: |
+      PermitRootLogin no
+      PasswordAuthentication no
+      Port 22
+      KbdInteractiveAuthentication no
+      ChallengeResponseAuthentication no
+      MaxAuthTries 3
+      AllowTcpForwarding no
+      X11Forwarding no
+      AllowAgentForwarding no
+      AuthorizedKeysFile .ssh/authorized_keys
+      AllowUsers cluster
 
 runcmd:
   - netplan apply
-  - apt-get update -y
+  - systemctl reload ssh
   - for i in $(seq 1 60); do PRIVATE_IFACE=$(ip -4 -o addr show | grep " ${local.master_node_private_ips[count.index]}/" | awk '{ print $2 }'); [ -n "$PRIVATE_IFACE" ] && break; sleep 2; done
   - if [ -z "$PRIVATE_IFACE" ]; then echo "private address ${local.master_node_private_ips[count.index]} never came up, aborting k3s install" >&2; exit 1; fi
   - PUBLIC_IP=$(curl -sf http://169.254.169.254/hetzner/v1/metadata/public-ipv4 || true)
@@ -70,6 +86,11 @@ runcmd:
   - for i in $(seq 1 180); do curl -skf --max-time 5 https://${local.master_node_private_ips[0]}:6443/ping > /dev/null && break; sleep 5; done
   - K3S_ARGS="$K3S_ARGS --server https://${local.master_node_private_ips[0]}:6443"
 %{~endif}
+%{~endif}
+%{~if var.use_tailscale}
+  # Install and configure tailscale
+  - curl -fsSL https://tailscale.com/install.sh | sh
+  - tailscale up --authkey=${var.tailscale_auth_key} --hostname=master-node-${count.index} --ssh
 %{~endif}
   # Download before running: a pipe into sh succeeds even when the download failed.
   - for i in $(seq 1 10); do curl -sfL https://get.k3s.io -o /tmp/k3s-install.sh && INSTALL_K3S_VERSION=${var.k3s_version} INSTALL_K3S_EXEC="$K3S_ARGS" K3S_TOKEN=${random_password.k3s_token.result} sh /tmp/k3s-install.sh && break; sleep 15; done

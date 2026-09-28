@@ -9,8 +9,9 @@ a running cluster.
 | --- | --- |
 | [Terraform](https://developer.hashicorp.com/terraform) ≥ 1.3 | Runs the module |
 | [Hetzner Cloud](https://console.hetzner.cloud/) project + **API token** | Target infrastructure |
-| Your own SSH **public** key, *or* a key already in the project | Installed on every node (`ssh_public_key` / `ssh_keys`) |
+| Your own SSH **public** key, *or* a key already in the project | Authorised for the `cluster` user on every node (`ssh_public_key` / `ssh_keys`) |
 | AWS S3 bucket (recommended) | Remote Terraform state — Hetzner has no native backend |
+| A Tailscale **auth key** (optional) | Only when `use_tailscale = true` — joins the nodes to your tailnet and enables Tailscale SSH |
 
 ### Create the Hetzner API token
 
@@ -40,6 +41,13 @@ ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -N ""
 The module uploads it as an `hcloud_ssh_key` named `kubernetes-cluster-admin`
 and installs it on the `root` and `cluster` users of every node.
 
+**You log in as `cluster`, never as `root`.** The nodes harden sshd on first
+boot with `PermitRootLogin no` and `AllowUsers cluster`, so the key on `root` is
+inert over the network. `cluster` has passwordless `sudo`. See
+[Architecture §2.7](02-architecture.md#27-node-ssh-hardening) for the full
+drop-in — note in particular that `ssh -L` port forwarding and agent forwarding
+are refused.
+
 If the key you want is **already uploaded** to your Hetzner project, skip
 `ssh_public_key` entirely and name the existing keys instead — this is a
 complete, valid configuration:
@@ -48,17 +56,31 @@ complete, valid configuration:
 ssh_keys = ["ops-laptop"]
 ```
 
-Both may be combined, and both may be omitted; the module creates
-`hcloud_ssh_key.admin` only when `ssh_public_key` is set.
+Both may be combined; the module creates `hcloud_ssh_key.admin` only when
+`ssh_public_key` is set.
 
-After `apply`, the generated key pairs are available as outputs — use them to
-log in as the `cluster` user:
+> **Do not omit both.** With neither input set, nothing is authorised for
+> `cluster` — and since sshd accepts no other account, the nodes are unreachable
+> over SSH. The one configuration where that is fine is `use_tailscale = true`:
+> Tailscale SSH does not go through sshd, so the tailnet is your way in.
 
-```bash
-terraform output -raw master_node_ssh_private_key > ./master_key
-terraform output -raw worker_node_ssh_private_key > ./worker_key
-chmod 600 ./master_key ./worker_key
+### Tailscale (optional)
+
+To reach the nodes over a tailnet instead of (or as well as) their public
+addresses, create an **ephemeral, pre-approved** auth key in the Tailscale admin
+console and pass it in:
+
+```hcl
+use_tailscale      = true
+tailscale_auth_key = var.tailscale_auth_key   # keep it sensitive
+extra_tls_sans     = ["master-node-0.tail1234.ts.net"]   # if kubectl goes over the tailnet
 ```
+
+Every node joins as `master-node-N` / `worker-node-N` with `--ssh`, so
+`ssh cluster@master-node-0` works from any device on the tailnet once the ACLs
+allow it. The key ends up in the nodes' `user_data` and in the Terraform state —
+give it a short expiry and rotate it after the apply. Details in
+[Architecture §2.8](02-architecture.md#28-tailscale).
 
 ## 3.2 Provider and backend
 
@@ -116,17 +138,21 @@ background** via cloud-init — allow a few minutes before the API server and
 workers are Ready. Track progress by SSHing into the master:
 
 ```bash
-ssh -i ./master_key cluster@<master_public_ip>
+ssh -i ~/.ssh/id_ed25519 cluster@<master_public_ip>   # or: ssh cluster@master-node-0 over Tailscale
 sudo journalctl -u k3s -f          # control-plane logs
 sudo kubectl get nodes -o wide     # watch workers join
 ```
+
+The first boot now also runs the distribution's package upgrades
+(`package_upgrade: true`), so give cloud-init a couple of minutes more than the
+bare install used to take.
 
 ## 3.4 Fetch the kubeconfig
 
 Copy the kubeconfig off the master and point `kubectl` at it:
 
 ```bash
-scp -i ./master_key cluster@<master_public_ip>:/etc/rancher/k3s/k3s.yaml ~/.kube/config
+scp cluster@<master_public_ip>:/etc/rancher/k3s/k3s.yaml ~/.kube/config
 
 # The kubeconfig points at 127.0.0.1 — repoint it at the master's IP:
 sed -i '' "s/127.0.0.1/<master_public_ip>/" ~/.kube/config
