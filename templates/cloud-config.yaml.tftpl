@@ -1,0 +1,92 @@
+#cloud-config
+# Shared by the master and the worker nodes. Everything role-specific arrives
+# through the parameters: the keys the "cluster" user trusts, the private key
+# the masters need to reach the workers, and the bootstrap script that turns
+# the node into a k3s server or agent.
+
+package_update: true
+package_upgrade: true
+packages:
+  - curl
+
+users:
+  # 'cluster' is the only account on the node. The distro default user is
+  # deliberately not created: sshd allows 'cluster' only and refuses root, so a
+  # second account would carry keys nothing is permitted to log in with.
+  - name: cluster
+    ssh_authorized_keys:
+      ${indent(6, trimspace(yamlencode(authorized_keys)))}
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+
+write_files:
+  # The Hetzner image only renders netplan config for eth0, so the private NIC
+  # would stay DOWN. eth0 keeps its own name, so "enp*" matches only private NICs.
+  - path: /etc/netplan/60-hcloud-private.yaml
+    owner: "root:root"
+    permissions: "0600"
+    content: |
+      network:
+        version: 2
+        ethernets:
+          hcloud-private:
+            match:
+              name: "enp*"
+            dhcp4: true
+
+  - path: /etc/ssh/sshd_config.d/99-hardening.conf
+    owner: "root:root"
+    permissions: "0644"
+    content: |
+      PermitRootLogin no
+      PasswordAuthentication no
+      Port 22
+      KbdInteractiveAuthentication no
+      ChallengeResponseAuthentication no
+      MaxAuthTries 3
+      AllowTcpForwarding no
+      X11Forwarding no
+      AllowAgentForwarding no
+      AuthorizedKeysFile .ssh/authorized_keys
+      AllowUsers cluster
+      
+%{~ if install_worker_node_key }
+  # Masters only: the private half of the pair the workers' "cluster" user
+  # trusts, so an operator on a master can reach the workers.
+  - path: /root/.ssh/worker_node_key
+    owner: "root:root"
+    permissions: "0600"
+    content: |
+      ${indent(6, trimspace(worker_node_private_key))}
+%{~ endif }
+
+  # The join token lives in its own root-only file rather than inside the
+  # bootstrap script, which is world-readable so it can be inspected.
+  - path: /etc/k3s/bootstrap.env
+    owner: "root:root"
+    permissions: "0600"
+    content: |
+      K3S_TOKEN=${k3s_token}
+
+  - path: /opt/k3s/common.sh
+    owner: "root:root"
+    permissions: "0644"
+    content: |
+      ${indent(6, trimspace(common_script))}
+
+  - path: /opt/k3s/bootstrap.sh
+    owner: "root:root"
+    permissions: "0755"
+    content: |
+      ${indent(6, trimspace(bootstrap_script))}
+
+runcmd:
+  # The bootstrap needs the private address, so the NIC comes up first.
+  - netplan apply
+  - systemctl reload ssh
+%{~ if use_tailscale }
+  - curl -fsSL https://tailscale.com/install.sh | sh
+  - sudo tailscale up --authkey=${tailscale_auth_key} --hostname=${hostname} --ssh
+%{~ endif }
+  # Logs to /var/log/cloud-init-output.log; re-runnable by hand from there.
+  - /opt/k3s/bootstrap.sh

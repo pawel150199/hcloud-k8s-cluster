@@ -7,7 +7,7 @@ a running cluster.
 
 | Tool / resource | Purpose |
 | --- | --- |
-| [Terraform](https://developer.hashicorp.com/terraform) ≥ 1.3 | Runs the module |
+| [Terraform](https://developer.hashicorp.com/terraform) ≥ 1.15.0 | Runs the module (`check` blocks and `optional()` object attributes) |
 | [Hetzner Cloud](https://console.hetzner.cloud/) project + **API token** | Target infrastructure |
 | Your own SSH **public** key, *or* a key already in the project | Authorised for the `cluster` user on every node (`ssh_public_key` / `ssh_keys`) |
 | AWS S3 bucket (recommended) | Remote Terraform state — Hetzner has no native backend |
@@ -89,15 +89,15 @@ backend in your **root** module. A minimal root setup:
 
 ```hcl
 terraform {
-  required_version = ">= 1.3"
+  required_version = ">= 1.15.0"
 
   required_providers {
     hcloud = {
       source  = "hetznercloud/hcloud"
       version = "~> 1.69"
     }
-    # The module also uses hashicorp/tls to generate the node key pairs;
-    # Terraform installs it automatically, no provider block is needed.
+    # The module also uses hashicorp/tls and hashicorp/random for the node key
+    # pair and the join token; Terraform installs both automatically.
   }
 
   # Remote state in AWS S3 (Hetzner has no native state backend).

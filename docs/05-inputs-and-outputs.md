@@ -22,9 +22,37 @@ Full reference for the module's variables (`variables.tf`) and outputs
 | `master_node_type` | `string` | `"cx23"` | Hetzner server type of the masters. An HA control plane wants dedicated vCPUs (`ccx*`) |
 | `worker_node_type` | `string` | `"cx23"` | Hetzner server type of the workers |
 | `node_location` | `string` | `"fsn1"` | Hetzner location (`fsn1`, `nbg1`, `hel1`, …) |
-| `node_enable_ipv4` | `bool` | `true` | Attach a public IPv4 to nodes |
-| `node_enable_ipv6` | `bool` | `true` | Attach a public IPv6 to nodes |
+| `use_public_ipv4_ip` | `bool` | `true` | Attach a public IPv4 to every node |
+| `use_public_ipv6_ip` | `bool` | `false` | Attach a public IPv6 to every node |
+| `use_placement_group` | `bool` | `true` | Spread the nodes over separate physical machines. A Hetzner group holds ten servers, so a larger cluster is sharded over `ceil(nodes / 10)` groups |
+| `default_labels` | `map(string)` | `{Confidentiality = "C3", Project = "hetzner-kubernetes"}` | Labels applied to every resource. Keys and values must match Hetzner's label rules (alphanumeric ends, `-`, `_`, `.`, ≤ 63 chars) |
 | `k3s_version` | `string` | `"v1.36.4+k3s1"` | k3s release installed on every node |
+
+Nodes with neither public address family need another route for the k3s and
+package downloads their bootstrap makes — `use_tailscale`, or egress of your
+own.
+
+### Firewall
+
+Both roles get an `hcloud_firewall` with the ports k3s needs. Inbound from the
+private network (kubelet `10250`, Flannel VXLAN `8472/UDP`, the registry mirror
+`5001`, ICMP, and etcd `2379-2380` on the masters) is always allowed; outbound
+TCP, UDP and ICMP are open. Only what is reachable from outside is tunable:
+
+| Name | Type | Default | Description |
+| --- | --- | --- | --- |
+| `ssh_source_ips` | `list(string)` | `["0.0.0.0/0", "::/0"]` | Networks allowed to reach SSH (22) on the nodes |
+| `kube_api_source_ips` | `list(string)` | `["0.0.0.0/0", "::/0"]` | Networks allowed to reach the API (6443) on the masters from outside the cluster |
+| `custom_master_firewall_rules` | `list(object)` | `[]` | Extra rules for the masters, applied on top of the defaults |
+| `custom_worker_firewall_rules` | `list(object)` | `[]` | Extra rules for the workers, applied on top of the defaults |
+
+A custom rule takes `direction` and `protocol`, plus optional `port`,
+`source_ips`, `destination_ips` and `description`. `41641/UDP` for Tailscale's
+direct peer connections is open on both roles regardless of `use_tailscale`.
+
+> Hetzner firewalls do not apply to load balancers, which is why
+> `control_plane_load_balancer_public` defaults to `false`: a public listener
+> would sit outside `kube_api_source_ips`.
 
 ### Kubernetes API certificate
 
@@ -140,6 +168,9 @@ output "api_endpoint" {
 | Worker node key pair | `tls_private_key.worker_node` | 1 |
 | Cluster join token | `random_password.k3s_token` | 1 |
 | Placement groups | `hcloud_placement_group.kubernetes_placement_group` | `ceil(nodes / 10)`, or 0 when `use_placement_group` is `false` |
-| API load balancer | `hcloud_load_balancer.control_plane` | 1 when the control plane is HA, else 0 |
+| API load balancer | `hcloud_load_balancer.control_plane`, plus its `_network`, `_service` and `_target` | 1 each when the control plane is HA, else 0 |
+
+`data.hcloud_ssh_keys.project` is read when `ssh_keys` is non-empty, so the
+listed keys' public material can also be authorised for the `cluster` user.
 
 Continue to [Operations »](06-operations.md)

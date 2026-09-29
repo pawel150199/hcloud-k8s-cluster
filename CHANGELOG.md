@@ -4,50 +4,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [Unreleased] - 2026-09-28
+## [0.1.16] - 2026-09-29
 
-> Everything under the two `Unreleased` headings is on `master` and not in a tag
-> yet. The last released version is **0.1.14**.
-
-### Added
- - SSH hardening on every node. cloud-init writes
-   `/etc/ssh/sshd_config.d/ssh-hardening.conf` and reloads sshd:
-   `PermitRootLogin no`, `PasswordAuthentication no`,
-   `KbdInteractiveAuthentication no`, `ChallengeResponseAuthentication no`,
-   `MaxAuthTries 3`, `AllowTcpForwarding no`, `X11Forwarding no`,
-   `AllowAgentForwarding no`, `AllowUsers cluster`.
-   **Breaking for operators:** `cluster` is now the only account sshd accepts,
-   so the keys Hetzner installs on `root` no longer get you in, and `ssh -L`
-   tunnelling to the Kubernetes API is refused. A cluster applied with neither
-   `ssh_public_key` nor `ssh_keys` is unreachable over SSH unless
-   `use_tailscale` is set.
- - Optional Tailscale support: `use_tailscale` installs Tailscale during
-   cloud-init and runs `tailscale up --ssh` with the pre-authorized
-   `tailscale_auth_key`, joining each node to the tailnet as `master-node-N` /
-   `worker-node-N`. Tailscale SSH bypasses sshd, so it works regardless of the
-   `AllowUsers cluster` restriction and gives an access path that does not
-   depend on the nodes' public addresses. The auth key is rendered into
-   `user_data` and kept in state — use an ephemeral, short-lived key.
- - `41641/UDP` inbound on both firewalls, so Tailscale can make direct peer
-   connections instead of relaying through DERP. The rule is unconditional.
- - `extra_tls_sans`: additional names on the API server certificate, on top of
-   the master private IPs, the master public IP and the API load balancer.
-   Needed for any address `kubectl` dials that the module does not know about —
-   a DNS name, or a Tailscale `100.x`/MagicDNS address.
-
-### Changed
- - Nodes run `package_update: true` and `package_upgrade: true` on first boot,
-   applying pending distribution updates before k3s is installed. This replaces
-   the bare `apt-get update -y` that ran in `runcmd`, and adds a minute or two
-   to the bootstrap.
-
-### Documentation
- - New `docs/02-architecture.md` §2.7 (node SSH hardening) and §2.8 (Tailscale);
-   access instructions across getting-started, usage and operations rewritten
-   for the `cluster`-only login and the loss of `ssh -L`; inputs/outputs
-   reference brought back in line with `variables.tf` and `outputs.tf`.
-
-## [Unreleased] - 2026-09-25
+> 0.1.8 through 0.1.15 were tagged without changelog entries, so this
+> section is the delta since 0.1.7.
 
 ### Added
  - HA control plane. `master_nodes_number` above 1 now actually builds one: the
@@ -78,6 +38,30 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
  - `check` blocks warning when the cluster does not fit in
    `private_network_subnet_ip_range`, or exceeds the 100 servers Hetzner
    attaches to a single network.
+ - SSH hardening on every node. cloud-init writes
+   `/etc/ssh/sshd_config.d/99-hardening.conf` and reloads sshd:
+   `PermitRootLogin no`, `PasswordAuthentication no`,
+   `KbdInteractiveAuthentication no`, `ChallengeResponseAuthentication no`,
+   `MaxAuthTries 3`, `AllowTcpForwarding no`, `X11Forwarding no`,
+   `AllowAgentForwarding no`, `AllowUsers cluster`.
+   **Breaking for operators:** `cluster` is now the only account sshd accepts,
+   so the keys Hetzner installs on `root` no longer get you in, and `ssh -L`
+   tunnelling to the Kubernetes API is refused. A cluster applied with neither
+   `ssh_public_key` nor `ssh_keys` is unreachable over SSH unless
+   `use_tailscale` is set.
+ - Optional Tailscale support: `use_tailscale` installs Tailscale during
+   cloud-init and runs `tailscale up --ssh` with the pre-authorized
+   `tailscale_auth_key`, joining each node to the tailnet as `master-node-N` /
+   `worker-node-N`. Tailscale SSH bypasses sshd, so it works regardless of the
+   `AllowUsers cluster` restriction and gives an access path that does not
+   depend on the nodes' public addresses. The auth key is rendered into
+   `user_data` and kept in state — use an ephemeral, short-lived key.
+ - `41641/UDP` inbound on both firewalls, so Tailscale can make direct peer
+   connections instead of relaying through DERP. The rule is unconditional.
+ - `extra_tls_sans`: additional names on the API server certificate, on top of
+   the master private IPs, the master public IP and the API load balancer.
+   Needed for any address `kubectl` dials that the module does not know about —
+   a DNS name, or a Tailscale `100.x`/MagicDNS address.
 
 ### Changed
  - **Breaking:** placement groups are sharded. A Hetzner placement group holds
@@ -94,6 +78,22 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
  - **Breaking:** nodes carry a `role` label (`master`/`worker`), which the load
    balancer uses to select its targets.
  - `user_data` changed for every node, so masters and workers are replaced.
+ - cloud-init moved out of the `.tf` files into `templates/`: one
+   `cloud-config.yaml.tftpl` shared by both roles, a per-role
+   `bootstrap-master.sh.tftpl` / `bootstrap-worker.sh.tftpl`, and
+   `k3s-common.sh` with the helpers they share. The bootstrap is a real script
+   on the node (`/opt/k3s/bootstrap.sh`) rather than a list of `runcmd`
+   one-liners, so it can be linted, re-run by hand and read in the logs under
+   the `[k3s-bootstrap]` prefix. The join token moved to a root-only
+   `/etc/k3s/bootstrap.env` instead of sitting in the script. `user_data`
+   changes, so the servers are replaced.
+ - Private addresses are assigned by the module with `cidrhost` — masters from
+   the start of the subnet, workers after them, the API load balancer second
+   from the end — instead of being read back off the server resources.
+ - Nodes run `package_update: true` and `package_upgrade: true` on first boot,
+   applying pending distribution updates before k3s is installed. This replaces
+   the bare `apt-get update -y` that ran in `runcmd`, and adds a minute or two
+   to the bootstrap.
 
 ### Fixed
  - Documentation no longer tells you to keep `master_nodes_number` at `1`; the
@@ -111,6 +111,24 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
    and leader elections well before the machine looks busy.
  - "Rotating the node SSH keys" named `tls_private_key.master_node`, which this
    release removes.
+
+### Documentation
+ - New `docs/02-architecture.md` §2.7 (node SSH hardening) and §2.8 (Tailscale);
+   access instructions across getting-started, usage and operations rewritten
+   for the `cluster`-only login and the loss of `ssh -L`; inputs/outputs
+   reference brought back in line with `variables.tf` and `outputs.tf`.
+ - Full documentation pass against the code: the Terraform resource graph in
+   §2.3 still named removed resources and outputs, §2.1–2.2 described private
+   IPs as assigned by Hetzner rather than by `cidrhost`, `node_enable_ipv4` /
+   `node_enable_ipv6` appeared throughout under names the module never had, the
+   firewall variables were missing from the inputs reference, and the sshd
+   drop-in was still located in `master-node.tf` / `worker-node.tf`. The PDF
+   build (`docs/Makefile`, `build-pdf.sh`, `pdf.config.js`, `assets/pdf.css`)
+   is gone; diagrams render from the Markdown as they always did.
+ - Logo, `docs/assets/logo.svg` — a hexagon with a control plane and three
+   agents joined to it, in the Hetzner and Kubernetes brand colours. Shown at
+   the top of the README and the documentation index. It is an SVG, so it stays
+   diffable and renders on both light and dark backgrounds.
 
 ## [0.1.7] - 2026-09-24
 

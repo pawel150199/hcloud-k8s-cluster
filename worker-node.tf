@@ -10,8 +10,8 @@ resource "hcloud_server" "worker_nodes" {
   firewall_ids       = [hcloud_firewall.worker_kubernetes_firewall.id]
 
   public_net {
-    ipv4_enabled = var.node_enable_ipv4
-    ipv6_enabled = var.node_enable_ipv6
+    ipv4_enabled = var.use_public_ipv4_ip
+    ipv6_enabled = var.use_public_ipv6_ip
   }
 
   network {
@@ -19,66 +19,24 @@ resource "hcloud_server" "worker_nodes" {
     ip         = local.worker_node_private_ips[count.index]
   }
 
-  user_data = <<EOF
-#cloud-config
-packages:
-  - curl
-package_update: true
-package_upgrade: true
-users:
-  # 'default' keeps the distro user that carries the Hetzner-provided keys.
-  - default
-  - name: cluster
-    ssh_authorized_keys:
-      ${indent(6, trimspace(yamlencode(local.worker_authorized_keys)))}
-    sudo: ALL=(ALL) NOPASSWD:ALL
-    shell: /bin/bash
+  user_data = templatefile("${path.module}/templates/cloud-config.yaml.tftpl", {
+    hostname                = "worker-node-${count.index}"
+    authorized_keys         = local.worker_authorized_keys
+    install_worker_node_key = false
+    worker_node_private_key = ""
+    k3s_token               = random_password.k3s_token.result
+    use_tailscale           = var.use_tailscale
+    tailscale_auth_key      = var.tailscale_auth_key
+    common_script           = local.k3s_common_script
 
-write_files:
-  # The Hetzner image only renders netplan config for eth0, so the private NIC
-  # would stay DOWN. eth0 keeps its own name, so "enp*" matches only private NICs.
-  - path: /etc/netplan/60-hcloud-private.yaml
-    owner: "root:root"
-    permissions: "0600"
-    content: |
-      network:
-        version: 2
-        ethernets:
-          hcloud-private:
-            match:
-              name: "enp*"
-            dhcp4: true
-  # SSH Hardening
-  - path: /etc/ssh/sshd_config.d/ssh-hardening.conf
-    content: |
-      PermitRootLogin no
-      PasswordAuthentication no
-      Port 22
-      KbdInteractiveAuthentication no
-      ChallengeResponseAuthentication no
-      MaxAuthTries 3
-      AllowTcpForwarding no
-      X11Forwarding no
-      AllowAgentForwarding no
-      AuthorizedKeysFile .ssh/authorized_keys
-      AllowUsers cluster
-
-runcmd:
-  - netplan apply
-  - systemctl reload ssh
-%{~if var.use_tailscale}
-  # Install and configure tailscale
-  - curl -fsSL https://tailscale.com/install.sh | sh
-  - tailscale up --authkey=${var.tailscale_auth_key} --hostname=worker-node-${count.index} --ssh
-%{~endif}
-  - for i in $(seq 1 60); do PRIVATE_IFACE=$(ip -4 -o addr show | grep " ${local.worker_node_private_ips[count.index]}/" | awk '{ print $2 }'); [ -n "$PRIVATE_IFACE" ] && break; sleep 2; done
-  - if [ -z "$PRIVATE_IFACE" ]; then echo "private address ${local.worker_node_private_ips[count.index]} never came up, aborting k3s install" >&2; exit 1; fi
-  # Spread the joins of a large worker pool.
-  - sleep ${(count.index % 20) * 3}
-  - for i in $(seq 1 240); do curl -skf --max-time 5 https://${local.control_plane_endpoint}:6443/ping > /dev/null && break; sleep 5; done
-  # Download before running: a pipe into sh succeeds even when the download failed.
-  - for i in $(seq 1 10); do curl -sfL https://get.k3s.io -o /tmp/k3s-install.sh && INSTALL_K3S_VERSION=${var.k3s_version} K3S_URL=https://${local.control_plane_endpoint}:6443 K3S_TOKEN=${random_password.k3s_token.result} INSTALL_K3S_EXEC="--node-ip ${local.worker_node_private_ips[count.index]} --flannel-iface $PRIVATE_IFACE" sh /tmp/k3s-install.sh && break; sleep 15; done
-EOF
+    bootstrap_script = templatefile("${path.module}/templates/bootstrap-worker.sh.tftpl", {
+      node_index             = count.index
+      private_ip             = local.worker_node_private_ips[count.index]
+      control_plane_endpoint = local.control_plane_endpoint
+      join_delay             = (count.index % 20) * 3
+      k3s_version            = var.k3s_version
+    })
+  })
 
   labels = local.worker_labels
 

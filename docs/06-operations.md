@@ -45,8 +45,8 @@ generated at install time.
 > - `kubectl --server` through a bastion inside the private network.
 >
 > If you would rather keep the tunnel, drop `AllowTcpForwarding no` from the
-> `write_files` block in `master-node.tf` and `worker-node.tf` — note that
-> changing `user_data` replaces the servers.
+> sshd drop-in in `templates/cloud-config.yaml.tftpl` — note that changing
+> `user_data` replaces the servers.
 
 Workers are reached the same way:
 
@@ -214,8 +214,8 @@ API-rate-limit reason:
 terraform destroy -parallelism=5
 ```
 
-This removes the servers, subnet, and network. **State lives in S3** and is
-unaffected — delete the state object separately if you're retiring the workspace.
+This removes the servers, firewalls, placement groups, subnet, network and — on
+an HA cluster — the API load balancer. **State lives in S3** and is unaffected — delete the state object separately if you're retiring the workspace.
 
 > **Before destroying:** back up anything you need (PersistentVolumes, etc.).
 > Hetzner Volumes and Load Balancers created *inside* the cluster by controllers

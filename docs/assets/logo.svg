@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 120" width="480" height="120" role="img" aria-labelledby="logo-title">
+  <title id="logo-title">hcloud-k8s-cluster — k3s on Hetzner Cloud</title>
+
+  <defs>
+    <linearGradient id="edge" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#D50C2D"/>
+      <stop offset="100%" stop-color="#326CE5"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Mark: a control plane at the centre of the hex, three agents joined to it. -->
+  <g fill="none" stroke="url(#edge)" stroke-linejoin="round" stroke-linecap="round">
+    <polygon points="60,14 99.8,37 99.8,83 60,106 20.2,83 20.2,37" stroke-width="4"/>
+    <g stroke-width="2.5" opacity="0.75">
+      <line x1="60" y1="60" x2="60" y2="32"/>
+      <line x1="60" y1="60" x2="35.8" y2="74"/>
+      <line x1="60" y1="60" x2="84.2" y2="74"/>
+    </g>
+  </g>
+
+  <g>
+    <circle cx="60" cy="32" r="6.5" fill="#326CE5"/>
+    <circle cx="35.8" cy="74" r="6.5" fill="#326CE5"/>
+    <circle cx="84.2" cy="74" r="6.5" fill="#326CE5"/>
+    <circle cx="60" cy="60" r="9" fill="#D50C2D"/>
+  </g>
+
+  <!-- Wordmark. Generic font families only: the SVG is rendered by the client. -->
+  <g font-family="ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif">
+    <text x="140" y="62" font-size="34" font-weight="700" letter-spacing="-0.8">
+      <tspan fill="#D50C2D">hcloud</tspan><tspan fill="#8A94A6">-</tspan><tspan fill="#326CE5">k8s-cluster</tspan>
+    </text>
+    <text x="141" y="90" font-size="14.5" font-weight="500" letter-spacing="1.6" fill="#8A94A6">
+      k3s on Hetzner Cloud · Terraform
+    </text>
+  </g>
+</svg>

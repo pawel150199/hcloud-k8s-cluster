@@ -78,6 +78,10 @@ locals {
   # balancer is not created at all.
   control_plane_lb_public_ips = var.control_plane_load_balancer_public ? hcloud_load_balancer.control_plane[*].ipv4 : []
 
+  # Shell helpers both bootstrap scripts source. Read as a file rather than a
+  # template so the script stays plain shell, runnable and lintable as it is.
+  k3s_common_script = file("${path.module}/templates/k3s-common.sh")
+
   master_tls_sans = concat(
     local.ha_control_plane ? [local.control_plane_lb_private_ip] : [],
     local.control_plane_lb_public_ips,

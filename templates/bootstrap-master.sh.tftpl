@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# Brings this node up as a k3s server. Rendered by Terraform; edit the template.
+set -euo pipefail
+
+# shellcheck source=k3s-common.sh
+. /opt/k3s/common.sh
+# K3S_TOKEN, exported so the k3s installer picks it up.
+set -a
+. /etc/k3s/bootstrap.env
+set +a
+
+PRIVATE_IP="${private_ip}"
+PRIVATE_IFACE="$(wait_for_private_iface "$PRIVATE_IP")"
+log "private network up on $PRIVATE_IFACE ($PRIVATE_IP)"
+
+K3S_EXEC="server --disable traefik"
+K3S_EXEC="$K3S_EXEC --node-ip $PRIVATE_IP --advertise-address $PRIVATE_IP"
+K3S_EXEC="$K3S_EXEC --flannel-iface $PRIVATE_IFACE"
+K3S_EXEC="$K3S_EXEC --tls-san $PRIVATE_IP"
+%{~ for san in tls_sans }
+K3S_EXEC="$K3S_EXEC --tls-san ${san}"
+%{~ endfor }
+
+# The node's own public address is not known to Terraform before the server
+# exists, so it is read from the metadata service. Empty when the node was
+# created without public IPv4, which is a supported setup.
+PUBLIC_IP="$(curl -sf http://169.254.169.254/hetzner/v1/metadata/public-ipv4 || true)"
+if [ -n "$PUBLIC_IP" ]; then
+  K3S_EXEC="$K3S_EXEC --tls-san $PUBLIC_IP"
+fi
+%{~ if ha_control_plane }
+%{~ if node_index == 0 }
+
+# First server of an HA control plane: it initialises the etcd cluster the
+# other masters then join.
+K3S_EXEC="$K3S_EXEC --cluster-init"
+%{~ else }
+
+# etcd admits members one at a time, so the joins are staggered and each one
+# waits for the initialising server to be serving before it starts.
+sleep ${node_index * 20}
+wait_for_api_server "${first_master_ip}" 180
+K3S_EXEC="$K3S_EXEC --server https://${first_master_ip}:6443"
+%{~ endif }
+%{~ endif }
+
+export INSTALL_K3S_VERSION="${k3s_version}"
+export INSTALL_K3S_EXEC="$K3S_EXEC"
+install_k3s
+
+# Lets the "cluster" user run kubectl without sudo.
+chown cluster:cluster /etc/rancher/k3s/k3s.yaml
+
+log "master-node-${node_index} ready"

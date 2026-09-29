@@ -12,16 +12,18 @@ On `terraform apply` it creates:
 - one or more **master (server) nodes** that bootstrap a k3s control plane;
 - a configurable number of **worker (agent) nodes** that automatically join the
   control plane over the private network;
-- the **SSH key pairs** used between the nodes, generated on the fly — the only
-  key you hand the module is the public key of your own machine.
+- **firewalls** for both roles, and **placement groups** that spread the nodes
+  over separate physical machines;
+- an **API load balancer**, when the control plane is HA
+  (`master_nodes_number` > 1);
+- the **SSH key pair** the masters use to reach the workers, generated on the
+  fly — the only key you hand the module is the public key of your own machine.
 
 Nodes are provisioned entirely through **cloud-init** (`user_data`): k3s is
 installed and configured on first boot, so no separate configuration-management
 step or manual SSH is required for the cluster to come up.
 
 ## Design goals
-
-These goals come from the project's top-level `README.md`:
 
 1. **Infrastructure as code** — the whole cluster is described in Terraform.
 2. **Automated Kubernetes setup** — the cluster bootstraps itself with no manual
@@ -36,9 +38,9 @@ These goals come from the project's top-level `README.md`:
 ## Why k3s
 
 k3s is a lightweight, CNCF-certified Kubernetes distribution that installs from a
-single script and runs well on small ARM/x86 Hetzner instances (the default node
-type is `cax11`, a shared-vCPU ARM64 machine). The module deliberately disables
-components that don't fit this environment:
+single script and runs well on small Hetzner instances (the default node type is
+`cx23`, a shared-vCPU x86 machine; `cax*` ARM types work just as well). The
+module deliberately disables components that don't fit this environment:
 
 | Disabled | Why |
 |----------|-----|
@@ -58,12 +60,14 @@ see [operations](06-operations.md#65-what-to-deploy-next).
 
 - Hetzner private network + subnet
 - Master node(s) with a bootstrapped k3s server
-- Worker node(s) that join the server automatically
+- Worker node(s) that join the control plane automatically
+- Per-role firewalls, placement groups, and the API load balancer of an HA
+  control plane
 
 **In scope, generated for you:**
 
-- The SSH key pairs the master and worker nodes use to talk to each other —
-  created by the module with the `tls` provider, never passed in as variables
+- The SSH key pair the masters use to reach the workers, and the k3s join token
+  every node shares — created by the module (`tls`, `random`), never passed in
 
 **Out of scope (you provide these):**
 
@@ -79,13 +83,20 @@ see [operations](06-operations.md#65-what-to-deploy-next).
 
 ```text
 hcloud-k8s-cluster/
-├── main.tf             # hcloud_network + subnet
-├── ssh.tf              # generated node key pairs + uploaded admin key
-├── master-node.tf      # hcloud_server master node(s) + k3s server cloud-init
-├── worker-node.tf      # hcloud_server worker node(s) + k3s agent cloud-init
+├── main.tf             # hcloud_network + subnet, placement groups, join token
+├── ssh.tf              # generated node key pair + uploaded admin key
+├── firewall.tf         # per-role firewall rules
+├── load-balancer.tf    # API load balancer (HA control plane only)
+├── master-node.tf      # hcloud_server master node(s)
+├── worker-node.tf      # hcloud_server worker node(s)
 ├── variables.tf        # input variables
 ├── outputs.tf          # module outputs
 ├── versions.tf         # required Terraform + provider versions
+├── templates/          # cloud-init document and the bootstrap scripts it ships
+│   ├── cloud-config.yaml.tftpl    # shared by both roles
+│   ├── k3s-common.sh              # shell helpers both bootstraps source
+│   ├── bootstrap-master.sh.tftpl  # k3s server bootstrap
+│   └── bootstrap-worker.sh.tftpl  # k3s agent bootstrap
 ├── examples/
 │   └── basic/          # runnable usage example
 └── docs/               # this documentation

@@ -1,20 +1,31 @@
-# Hcloud K8S Cluster
+<p align="center">
+  <img src="docs/assets/logo.svg" alt="hcloud-k8s-cluster — k3s on Hetzner Cloud" width="440">
+</p>
 
-The ideae behind this project is to create module for provisioning a Kubernetes cluster in Hetzner Cloud Provider.
+Terraform module that provisions a self-managed [k3s](https://k3s.io/) Kubernetes
+cluster on [Hetzner Cloud](https://www.hetzner.com/cloud): one or more master
+nodes, a configurable number of workers, a private network the nodes join over,
+per-role firewalls, and an API load balancer when the control plane is HA. The
+nodes bootstrap themselves through cloud-init — nothing to run after `apply`.
 
-Cluster is self managed and is created using `k3s`.
+```hcl
+module "hcloud_kubernetes_cluster" {
+  source = "github.com/pawel150199/hcloud-k8s-cluster"
 
-In Hetzner community I found similar topic: https://community.hetzner.com/tutorials/setup-your-own-scalable-kubernetes-cluster
+  master_nodes_number = 1
+  worker_nodes_number = 2
+
+  # The only key material you supply: your own public key.
+  # Optional - pass `ssh_keys` instead to reuse a key already in your project.
+  ssh_public_key = trimspace(file("~/.ssh/id_ed25519.pub"))
+}
+```
 
 ## Documentation
 
 Full module documentation lives in [`docs/`](docs/index.md), with Mermaid
 diagrams (architecture, network topology, bootstrap sequence) and a usage
-example. It can also be exported to PDF:
-
-```bash
-cd docs && make        # renders docs/pdf/*.pdf (requires md-to-pdf + internet)
-```
+example.
 
 | Page | Contents |
 | --- | --- |
@@ -38,7 +49,7 @@ cd docs && make        # renders docs/pdf/*.pdf (requires md-to-pdf + internet)
 > ten can exhaust the budget mid-apply and leave servers half-created. See
 > [Applying a large cluster](docs/06-operations.md#applying-a-large-cluster).
 
-## Usefull links
+## Useful links
 1. https://github.com/solidnerd/terraform-k8s-hcloud -> setup cluster using terraform and kubeadm
 2. https://github.com/kube-hetzner/terraform-hcloud-kube-hetzner -> module for terraform to set up a scalable k8s in hcloud
 3. https://alexslubsky.medium.com/setup-highly-available-kubernetus-cluster-with-hetzner-cloud-and-terraform-941a9e25ddf6 -> nice article about setting up k8s in hcloud.
@@ -101,8 +112,6 @@ No modules.
 | <a name="input_kube_api_source_ips"></a> [kube\_api\_source\_ips](#input\_kube\_api\_source\_ips) | Networks allowed to reach the Kubernetes API on port 6443 from outside the cluster. Nodes themselves join over the private network and are always allowed. | `list(string)` | <pre>[<br/>  "0.0.0.0/0",<br/>  "::/0"<br/>]</pre> | no |
 | <a name="input_master_node_type"></a> [master\_node\_type](#input\_master\_node\_type) | Master node type. The default suits a small cluster. A control plane serving many workers, or running embedded etcd for an HA setup, wants dedicated vCPUs (`ccx*`) rather than a shared-vCPU type. | `string` | `"cx23"` | no |
 | <a name="input_master_nodes_number"></a> [master\_nodes\_number](#input\_master\_nodes\_number) | Number of master nodes in Cluster. Values above 1 build an HA control plane on embedded etcd, which needs a quorum and therefore an odd number of servers. | `number` | `1` | no |
-| <a name="input_node_enable_ipv4"></a> [node\_enable\_ipv4](#input\_node\_enable\_ipv4) | Kubernetes cluster use IPv4 networking | `bool` | `true` | no |
-| <a name="input_node_enable_ipv6"></a> [node\_enable\_ipv6](#input\_node\_enable\_ipv6) | Kubernetes cluster use IPv6 networking | `bool` | `true` | no |
 | <a name="input_node_image"></a> [node\_image](#input\_node\_image) | Kubernetes cluster node image | `string` | `"ubuntu-26.04"` | no |
 | <a name="input_node_location"></a> [node\_location](#input\_node\_location) | Kubernetes cluster node location | `string` | `"fsn1"` | no |
 | <a name="input_private_network_ip_range"></a> [private\_network\_ip\_range](#input\_private\_network\_ip\_range) | Private network IP range | `string` | `"10.0.0.0/16"` | no |
@@ -117,6 +126,8 @@ No modules.
 | <a name="input_ssh_source_ips"></a> [ssh\_source\_ips](#input\_ssh\_source\_ips) | Networks allowed to reach SSH on the nodes. Defaults to the whole internet; narrow it to your own address where you can. | `list(string)` | <pre>[<br/>  "0.0.0.0/0",<br/>  "::/0"<br/>]</pre> | no |
 | <a name="input_tailscale_auth_key"></a> [tailscale\_auth\_key](#input\_tailscale\_auth\_key) | Pre-authorized Tailscale key used by nodes to join the tailnet. Required when `use_tailscale` is true; ignored otherwise. It is rendered into the nodes' cloud-init `user_data`, so use a short-lived, ephemeral, pre-approved key and treat the Terraform state as a secret. | `string` | `"null"` | no |
 | <a name="input_use_placement_group"></a> [use\_placement\_group](#input\_use\_placement\_group) | If true it uses Placement Groups, which spread nodes over different physical machines so that they are less likely to fail together. A group holds at most ten servers, so a larger cluster is spread over as many groups as it needs. | `bool` | `true` | no |
+| <a name="input_use_public_ipv4_ip"></a> [use\_public\_ipv4\_ip](#input\_use\_public\_ipv4\_ip) | Define if use public IPv4 Addresses | `bool` | `true` | no |
+| <a name="input_use_public_ipv6_ip"></a> [use\_public\_ipv6\_ip](#input\_use\_public\_ipv6\_ip) | Define if use public IPv6 Addresses | `bool` | `false` | no |
 | <a name="input_use_tailscale"></a> [use\_tailscale](#input\_use\_tailscale) | Join every node to a Tailscale tailnet on first boot and enable Tailscale SSH. Needs `tailscale_auth_key`. Gives an access path that does not depend on the nodes' public addresses, which matters because sshd is hardened to `AllowUsers cluster` and `PermitRootLogin no`. | `bool` | `false` | no |
 | <a name="input_worker_node_type"></a> [worker\_node\_type](#input\_worker\_node\_type) | Worker node type | `string` | `"cx23"` | no |
 | <a name="input_worker_nodes_number"></a> [worker\_nodes\_number](#input\_worker\_nodes\_number) | Number of worker nodes in Cluster | `number` | `2` | no |

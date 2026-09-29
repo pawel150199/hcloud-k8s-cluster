@@ -48,14 +48,17 @@ flowchart TB
 
 **Key points**
 
-- Every node has an interface on the **private subnet** (`10.0.1.0/24`).
-  Hetzner assigns every private IP; the module reads the master's back off
-  `hcloud_server.master_nodes[0]` rather than pinning it.
-- Nodes may also have **public IPv4/IPv6** (toggled by `node_enable_ipv4` /
-  `node_enable_ipv6`) — used for outbound package downloads and, on the master,
-  for fetching the kubeconfig.
-- Workers reach the control plane at **`https://<master private IP>:6443`** over
-  the private network.
+- Every node has an interface on the **private subnet** (`10.0.1.0/24`). The
+  module assigns those addresses itself with `cidrhost`, rather than letting
+  Hetzner pick them: a node's bootstrap script needs its own private address,
+  and reading it back off the server resource that the script is rendered into
+  would close a dependency cycle.
+- Nodes may also have **public IPv4/IPv6** (toggled by `use_public_ipv4_ip` /
+  `use_public_ipv6_ip`) — used for outbound package downloads and, on the
+  master, for fetching the kubeconfig.
+- Workers reach the control plane at **`https://<control plane endpoint>:6443`**
+  over the private network — the API load balancer when the control plane is HA,
+  otherwise the first master.
 
 ## 2.2 Network topology
 
@@ -67,7 +70,7 @@ flowchart LR
 
   subgraph HNET["hcloud_network 10.0.0.0/16"]
     subgraph SUBNET["subnet 10.0.1.0/24"]
-      M["master-node-0<br/>priv IP (assigned)<br/>pub IPv4/IPv6"]
+      M["master-node-0<br/>priv 10.0.1.1<br/>pub IPv4/IPv6"]
       W0["worker-node-0<br/>priv 10.0.1.x"]
       W1["worker-node-1<br/>priv 10.0.1.x"]
     end
@@ -84,8 +87,12 @@ flowchart LR
 | --- | --- | --- |
 | Network | `10.0.0.0/16` | `private_network_ip_range` |
 | Subnet | `10.0.1.0/24` | `eu-central`, type `cloud` |
-| Master private IP | `10.0.1.0/24` pool | Assigned by Hetzner, read from the server |
-| Worker private IPs | `10.0.1.0/24` pool | Assigned by Hetzner |
+| Master private IPs | `10.0.1.1` … | `cidrhost(subnet, index + 1)` |
+| Worker private IPs | after the masters | `cidrhost(subnet, masters + index + 1)` |
+| API load balancer | `10.0.1.253` | Second-from-last host of the subnet, clear of the nodes |
+
+A `check` block fails the plan when the nodes plus the load balancer do not fit
+in `private_network_subnet_ip_range`.
 
 ## 2.3 Terraform resource graph
 
@@ -93,33 +100,48 @@ What Terraform actually manages, and the dependencies between resources:
 
 ```mermaid
 flowchart TD
-  V["input variables<br/>incl. ssh_public_key"] --> NET["hcloud_network<br/>private_network"]
-  V --> AK["hcloud_ssh_key<br/>admin"]
+  V["input variables"] --> NET["hcloud_network<br/>private_network"]
+  V --> AK["hcloud_ssh_key<br/>admin (optional)"]
+  V --> FW["hcloud_firewall<br/>master / worker"]
+  V --> PG["hcloud_placement_group<br/>count = ceil(nodes / 10)"]
   NET --> SUB["hcloud_network_subnet<br/>private_network_subnet"]
-  TM["tls_private_key<br/>master_node"] --> M
+  NET --> LB["hcloud_load_balancer<br/>control_plane (HA only)"]
+  TK["random_password<br/>k3s_token"] --> M
+  TK --> W
   TW["tls_private_key<br/>worker_node"] --> M
-  TM --> W
   TW --> W
   AK --> M
   AK --> W
+  FW --> M
+  FW --> W
+  PG --> M
+  PG --> W
   SUB --> M["hcloud_server<br/>master_nodes[count]"]
   SUB --> W["hcloud_server<br/>worker_nodes[count]"]
+  LB --> M
+  LB --> W
   M --> W
-  NET --> O1["output:<br/>kubernetes_network_ip_range"]
-  M --> O2["output:<br/>master_node_ip"]
-  TM --> O3["outputs:<br/>master_node_ssh_*_key"]
-  TW --> O4["outputs:<br/>worker_node_ssh_*_key"]
+  M --> O1["outputs:<br/>master_nodes_ips<br/>master_nodes_private_ips"]
+  W --> O2["outputs:<br/>worker_nodes_ips<br/>worker_nodes_private_ips"]
+  LB --> O3["outputs:<br/>control_plane_endpoint<br/>control_plane_load_balancer_ipv4"]
+  TK --> O4["output:<br/>cluster_token (sensitive)"]
 
   classDef res fill:#fff3e0,stroke:#e65100,color:#bf360c;
   classDef out fill:#f3e5f5,stroke:#6a1b9a,color:#4a148c;
-  class NET,SUB,M,W,AK,TM,TW res;
+  class NET,SUB,M,W,AK,TW,TK,FW,PG,LB res;
   class O1,O2,O3,O4 out;
 ```
 
 `depends_on` wires the subnet before the servers, and the workers after the
-master, so the control plane exists before any agent tries to join. The two
-`tls_private_key` resources are created first — their material is rendered into
+masters and the load balancer target, so the control plane exists before any
+agent tries to join. `tls_private_key.worker_node` and
+`random_password.k3s_token` are created first — their material is rendered into
 the servers' `user_data`.
+
+The masters read the load balancer's addresses for their TLS SANs, which is why
+the load balancer's *targets* are selected by label rather than by server ID:
+referring to `hcloud_server.master_nodes` there would close a cycle. See
+[2.6](#26-ha-control-plane).
 
 ## 2.4 Bootstrap sequence
 
@@ -164,50 +186,67 @@ start embedded etcd, and the others wait for it and join with `--server`. See
 
 ### What each role runs
 
-Both roles bootstrap from `runcmd` in their cloud-init document, rendered per
-node by Terraform.
+Both roles boot from the same cloud-init document,
+`templates/cloud-config.yaml.tftpl`. It is identical for masters and workers
+apart from three parameters Terraform fills in: the keys the `cluster` user
+trusts, the worker private key (masters only), and the bootstrap script. That
+script is the only role-specific part, and it is a real shell script rather
+than a list of `runcmd` one-liners:
 
-**Master (`master-node.tf`):**
-
-```bash
-# PRIVATE_IFACE is looked up from the address Terraform assigned; PUBLIC_IP
-# comes from the Hetzner metadata service and is added as a cert SAN, as is the
-# API load balancer's address when the control plane is HA.
-K3S_ARGS="server --disable traefik \
-  --node-ip <master priv IP> --advertise-address <master priv IP> \
-  --flannel-iface $PRIVATE_IFACE \
-  --tls-san <master priv IP> --tls-san $PUBLIC_IP"
-# with several masters, exactly one server initialises embedded etcd and the
-# rest wait for it and join (see 2.6):
-#   master-node-0  -> K3S_ARGS="$K3S_ARGS --cluster-init"
-#   master-node-N  -> sleep N*20; poll master-0:6443; then --server https://...
-for i in $(seq 1 10); do
-  curl -sfL https://get.k3s.io -o /tmp/k3s-install.sh && \
-    INSTALL_K3S_EXEC="$K3S_ARGS" K3S_TOKEN=<random_password.k3s_token> \
-    sh /tmp/k3s-install.sh && break
-  sleep 15
-done
-# then make the kubeconfig readable by the "cluster" user
+```text
+/opt/k3s/common.sh      # wait_for_private_iface, wait_for_api_server, install_k3s
+/opt/k3s/bootstrap.sh   # the role's bootstrap, rendered per node
+/etc/k3s/bootstrap.env  # K3S_TOKEN, root-only (0600)
 ```
 
-**Worker (`worker-node.tf`):**
+`runcmd` itself is only three steps: bring the private NIC up, reload sshd, run
+`/opt/k3s/bootstrap.sh`. The script logs to `/var/log/cloud-init-output.log`
+under the `[k3s-bootstrap]` prefix and can be re-run by hand on a node that
+failed to join.
+
+**Master (`templates/bootstrap-master.sh.tftpl`):**
 
 ```bash
+PRIVATE_IFACE="$(wait_for_private_iface "$PRIVATE_IP")"
+
+K3S_EXEC="server --disable traefik"
+K3S_EXEC="$K3S_EXEC --node-ip $PRIVATE_IP --advertise-address $PRIVATE_IP"
+K3S_EXEC="$K3S_EXEC --flannel-iface $PRIVATE_IFACE --tls-san $PRIVATE_IP"
+# plus one --tls-san per entry of local.master_tls_sans, and the node's own
+# public address read from the Hetzner metadata service when it has one.
+
+# with several masters, exactly one server initialises embedded etcd and the
+# rest wait for it and join (see 2.6):
+#   master-node-0  -> K3S_EXEC="$K3S_EXEC --cluster-init"
+#   master-node-N  -> sleep N*20; wait_for_api_server <master-0 priv IP>
+#                     K3S_EXEC="$K3S_EXEC --server https://<master-0 priv IP>:6443"
+
+export INSTALL_K3S_VERSION INSTALL_K3S_EXEC="$K3S_EXEC"   # K3S_TOKEN from bootstrap.env
+install_k3s
+chown cluster:cluster /etc/rancher/k3s/k3s.yaml   # kubeconfig for the "cluster" user
+```
+
+**Worker (`templates/bootstrap-worker.sh.tftpl`):**
+
+```bash
+PRIVATE_IFACE="$(wait_for_private_iface "$PRIVATE_IP")"
+
 # 1. spread the joins of a large pool instead of arriving all in one second
 sleep $(( (index % 20) * 3 ))
 # 2. wait for the control plane: the API load balancer when the control plane
 #    is HA, otherwise the first master
-for i in $(seq 1 240); do curl -skf --max-time 5 https://<endpoint>:6443/ping && break; sleep 5; done
+wait_for_api_server <endpoint> 240
 # 3. install and join with the token Terraform generated. No SSH hop: the agent
 #    is handed the same token the servers were given.
-for i in $(seq 1 10); do
-  curl -sfL https://get.k3s.io -o /tmp/k3s-install.sh && \
-    K3S_URL=https://<endpoint>:6443 K3S_TOKEN=<random_password.k3s_token> \
-    INSTALL_K3S_EXEC="--node-ip <worker priv IP> --flannel-iface $PRIVATE_IFACE" \
-    sh /tmp/k3s-install.sh && break
-  sleep 15
-done
+export K3S_URL="https://<endpoint>:6443"              # K3S_TOKEN from bootstrap.env
+export INSTALL_K3S_EXEC="--node-ip $PRIVATE_IP --flannel-iface $PRIVATE_IFACE"
+install_k3s
 ```
+
+`install_k3s` retries the installer ten times, and `wait_for_*` give up with a
+non-zero status rather than letting the bootstrap carry on against a network
+that never came up — cloud-init then marks the boot as failed instead of
+leaving a half-configured node behind.
 
 > **Why the nodes upgrade their packages on first boot.** Both roles set
 > `package_update: true` and `package_upgrade: true`, so cloud-init applies the
@@ -375,7 +414,7 @@ at a time, so arriving together is what to avoid.
 
 ## 2.7 Node SSH hardening
 
-Both roles write the same drop-in, `/etc/ssh/sshd_config.d/ssh-hardening.conf`,
+Both roles write the same drop-in, `/etc/ssh/sshd_config.d/99-hardening.conf`,
 and reload sshd at the end of cloud-init. It is a drop-in rather than an edit of
 `sshd_config`, so a distribution upgrade of the main file leaves it alone.
 

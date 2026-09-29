@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Joins this node to the cluster as a k3s agent. Rendered by Terraform; edit
+# the template.
+set -euo pipefail
+
+# shellcheck source=k3s-common.sh
+. /opt/k3s/common.sh
+# K3S_TOKEN, exported so the k3s installer picks it up.
+set -a
+. /etc/k3s/bootstrap.env
+set +a
+
+PRIVATE_IP="${private_ip}"
+PRIVATE_IFACE="$(wait_for_private_iface "$PRIVATE_IP")"
+log "private network up on $PRIVATE_IFACE ($PRIVATE_IP)"
+
+# Spread the joins of a large worker pool instead of having every agent
+# register in the same second.
+sleep ${join_delay}
+
+wait_for_api_server "${control_plane_endpoint}" 240
+
+export INSTALL_K3S_VERSION="${k3s_version}"
+export K3S_URL="https://${control_plane_endpoint}:6443"
+export INSTALL_K3S_EXEC="--node-ip $PRIVATE_IP --flannel-iface $PRIVATE_IFACE"
+install_k3s
+
+log "worker-node-${node_index} ready"

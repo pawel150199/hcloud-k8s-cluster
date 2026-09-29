@@ -23,6 +23,22 @@ variable "private_network_subnet_ip_range" {
   default     = "10.0.1.0/24"
 }
 
+# When you disable public IPv4 and public IPv4 Addresses then make sure that you will have still access to the nodes and kube-api
+# In that scenario we recommend using tailscale: https://tailscale.com/
+# After introducing tailscale you will still have access to the nodes using tailscale network (kind of VPN)
+# You can add this functionalicy by configuring tailscale (creating accoung, generating auth key) and enabling variable use_tailscale to true
+variable "use_public_ipv4_ip" {
+  type        = bool
+  description = "Define if use public IPv4 Addresses"
+  default     = true
+}
+
+variable "use_public_ipv6_ip" {
+  type        = bool
+  description = "Define if use public IPv6 Addresses"
+  default     = false
+}
+
 # Kubernetes cluster node configuration variables
 variable "k3s_version" {
   type        = string
@@ -62,18 +78,6 @@ variable "node_location" {
   default     = "fsn1"
 }
 
-variable "node_enable_ipv4" {
-  type        = bool
-  description = "Kubernetes cluster use IPv4 networking"
-  default     = true
-}
-
-variable "node_enable_ipv6" {
-  type        = bool
-  description = "Kubernetes cluster use IPv6 networking"
-  default     = true
-}
-
 variable "ssh_keys" {
   type        = list(string)
   description = "Optional names, IDs or fingerprints of SSH keys that already exist in the Hetzner project. They are installed on the nodes' root user and authorised for the `cluster` user, in addition to `ssh_public_key`."
@@ -109,6 +113,7 @@ variable "use_tailscale" {
   type        = bool
   default     = false
 }
+
 variable "tailscale_auth_key" {
   description = "Pre-authorized Tailscale key used by nodes to join the tailnet. Required when `use_tailscale` is true; ignored otherwise. It is rendered into the nodes' cloud-init `user_data`, so use a short-lived, ephemeral, pre-approved key and treat the Terraform state as a secret."
   type        = string
