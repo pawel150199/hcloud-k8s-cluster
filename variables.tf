@@ -27,13 +27,13 @@ variable "private_network_subnet_ip_range" {
 # In that scenario we recommend using tailscale: https://tailscale.com/
 # After introducing tailscale you will still have access to the nodes using tailscale network (kind of VPN)
 # You can add this functionalicy by configuring tailscale (creating accoung, generating auth key) and enabling variable use_tailscale to true
-variable "use_public_ipv4_ip" {
+variable "use_public_ipv4" {
   type        = bool
   description = "Define if use public IPv4 Addresses"
   default     = true
 }
 
-variable "use_public_ipv6_ip" {
+variable "use_public_ipv6" {
   type        = bool
   description = "Define if use public IPv6 Addresses"
   default     = false

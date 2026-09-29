@@ -22,8 +22,8 @@ Full reference for the module's variables (`variables.tf`) and outputs
 | `master_node_type` | `string` | `"cx23"` | Hetzner server type of the masters. An HA control plane wants dedicated vCPUs (`ccx*`) |
 | `worker_node_type` | `string` | `"cx23"` | Hetzner server type of the workers |
 | `node_location` | `string` | `"fsn1"` | Hetzner location (`fsn1`, `nbg1`, `hel1`, …) |
-| `use_public_ipv4_ip` | `bool` | `true` | Attach a public IPv4 to every node |
-| `use_public_ipv6_ip` | `bool` | `false` | Attach a public IPv6 to every node |
+| `use_public_ipv4` | `bool` | `true` | Attach a public IPv4 to every node |
+| `use_public_ipv6` | `bool` | `false` | Attach a public IPv6 to every node |
 | `use_placement_group` | `bool` | `true` | Spread the nodes over separate physical machines. A Hetzner group holds ten servers, so a larger cluster is sharded over `ceil(nodes / 10)` groups |
 | `default_labels` | `map(string)` | `{Confidentiality = "C3", Project = "hetzner-kubernetes"}` | Labels applied to every resource. Keys and values must match Hetzner's label rules (alphanumeric ends, `-`, `_`, `.`, ≤ 63 chars) |
 | `k3s_version` | `string` | `"v1.36.4+k3s1"` | k3s release installed on every node |

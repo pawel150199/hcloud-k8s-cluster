@@ -10,8 +10,8 @@ resource "hcloud_server" "worker_nodes" {
   firewall_ids       = [hcloud_firewall.worker_kubernetes_firewall.id]
 
   public_net {
-    ipv4_enabled = var.use_public_ipv4_ip
-    ipv6_enabled = var.use_public_ipv6_ip
+    ipv4_enabled = var.use_public_ipv4
+    ipv6_enabled = var.use_public_ipv6
   }
 
   network {

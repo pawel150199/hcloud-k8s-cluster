@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.1.17] - 2026-09-29
+
+### Changed
+ - The variables `use_public_ipv4_ip` and `use_public_ipv6_ip` have been renamed to `use_public_ipv4` and `use_public_ipv6` respectively. The `_ip` suffix was redundant and has been removed for clarity.
+
+### Documentation
+ - Documentation and examples have been updated to reflect the variable name changes. All references to the old variable names have been replaced with the new names in the documentation and example configurations.
+
 ## [0.1.16] - 2026-09-29
 
 > 0.1.8 through 0.1.15 were tagged without changelog entries, so this

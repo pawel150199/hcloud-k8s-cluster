@@ -53,8 +53,8 @@ flowchart TB
   Hetzner pick them: a node's bootstrap script needs its own private address,
   and reading it back off the server resource that the script is rendered into
   would close a dependency cycle.
-- Nodes may also have **public IPv4/IPv6** (toggled by `use_public_ipv4_ip` /
-  `use_public_ipv6_ip`) — used for outbound package downloads and, on the
+- Nodes may also have **public IPv4/IPv6** (toggled by `use_public_ipv4` /
+  `use_public_ipv6`) — used for outbound package downloads and, on the
   master, for fetching the kubeconfig.
 - Workers reach the control plane at **`https://<control plane endpoint>:6443`**
   over the private network — the API load balancer when the control plane is HA,

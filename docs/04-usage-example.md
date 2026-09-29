@@ -22,8 +22,8 @@ module "hcloud_kubernetes_cluster" {
 
   # When both public address families are off, use Tailscale to keep a path to
   # the nodes and the API (see 4.3).
-  use_public_ipv4_ip = true
-  use_public_ipv6_ip = true
+  use_public_ipv4 = true
+  use_public_ipv6 = true
 
   # Spreads the nodes over separate physical machines, so one host failure does
   # not take several nodes with it.
@@ -147,7 +147,7 @@ module "hcloud_kubernetes_cluster" {
 
   # Nodes still need public IPv4 for outbound package and k3s downloads unless
   # you provide egress another way.
-  use_public_ipv4_ip = true
+  use_public_ipv4 = true
 
   # With the tailnet in place, narrow public SSH to nothing you do not need.
   ssh_source_ips = ["203.0.113.4/32"]

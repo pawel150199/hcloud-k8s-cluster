@@ -12,8 +12,8 @@ module "hcloud_kubernetes_cluster" {
   # When ipv6 and ipv4 addresses will be disabled to have
   # connection to the kubeapi we recommend to use tailscale
   # It can be easly switched on using variable use_tailscale
-  use_public_ipv4_ip = true
-  use_public_ipv6_ip = true
+  use_public_ipv4 = true
+  use_public_ipv6 = true
 
   # Placement Group is used to decrease the potential outage in case of issue with physical server
   # It is responsible for spreading the VMs on different physical servers
