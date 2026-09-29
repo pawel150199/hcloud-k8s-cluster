@@ -49,7 +49,7 @@ write_files:
       AllowAgentForwarding no
       AuthorizedKeysFile .ssh/authorized_keys
       AllowUsers cluster
-      
+
 %{~ if install_worker_node_key }
   # Masters only: the private half of the pair the workers' "cluster" user
   # trusts, so an operator on a master can reach the workers.
