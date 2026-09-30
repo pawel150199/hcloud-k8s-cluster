@@ -86,7 +86,7 @@ runcmd:
   - systemctl reload ssh
 %{~ if use_tailscale }
   - curl -fsSL https://tailscale.com/install.sh | sh
-  - sudo tailscale up --authkey=${tailscale_auth_key} --hostname=${hostname} --ssh
+  - sudo tailscale up --authkey="${tailscale_auth_key}" --hostname=${hostname} --ssh
 %{~ endif }
   # Logs to /var/log/cloud-init-output.log; re-runnable by hand from there.
   - /opt/k3s/bootstrap.sh
