@@ -4,6 +4,48 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.1.20] - 2026-10-11
+
+### Documentation
+ - New "Environment variables" section in getting started, listing the variables
+   the module and its state backend read: `HCLOUD_TOKEN`, `TF_VAR_hcloud_token`,
+   `TF_VAR_ssh_public_key`, `TF_VAR_tailscale_auth_key` and the AWS credential
+   chain (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`,
+   `AWS_REGION`/`AWS_DEFAULT_REGION`, `AWS_PROFILE`). It notes that `TF_VAR_*`
+   sets inputs on the **root** module only, so a child module needs a matching
+   `variable` and an explicit pass-through.
+ - The provider/backend chapter now walks through the **AWS S3 state bucket**:
+   creating and versioning it, the IAM permissions the principal needs, the
+   `encrypt` and `use_lockfile` backend options, and the DynamoDB alternative.
+ - Documented reaching the cluster when the nodes have **no public IP addresses**
+   (`use_public_ipv4 = false`, `use_public_ipv6 = false`): `master_nodes_ips`
+   and `worker_nodes_ips` are then empty, because they report public IPv4 only,
+   so node addresses are read from the tailnet (`tailscale status`, MagicDNS
+   names) and the kubeconfig points at a Tailscale address listed in
+   `extra_tls_sans`. Covered in getting started, architecture, the usage example
+   and operations.
+ - Recorded the 0.1.18 and 0.1.19 fixes below, which were tagged without
+   changelog entries.
+
+### Fixed
+ - `mkdocs.yml` set the Material palette accent to `indgo`, which is not a valid
+   colour and left the accent unthemed; it is now `indigo`.
+
+## [0.1.19] - 2026-10-06
+
+### Fixed
+ - The Tailscale auth key is now passed to `tailscale up` single-quoted
+   (`--authkey='…'`) in cloud-init, so a key containing characters the shell
+   would otherwise interpret is handed to Tailscale intact. `user_data`
+   changes, so nodes are replaced on the next apply.
+
+## [0.1.18] - 2026-09-30
+
+### Fixed
+ - The Tailscale auth key is quoted when passed to `tailscale up` in cloud-init
+   (`--authkey="…"`); it had been interpolated unquoted, so the command could
+   fail depending on the key's characters.
+
 ## [0.1.17] - 2026-09-29
 
 ### Changed

@@ -455,7 +455,7 @@ install Tailscale from `https://tailscale.com/install.sh` during cloud-init and
 run:
 
 ```bash
-tailscale up --authkey=<tailscale_auth_key> --hostname=<master|worker>-node-N --ssh
+tailscale up --authkey='<tailscale_auth_key>' --hostname=<master|worker>-node-N --ssh
 ```
 
 Each node joins the tailnet under its own name (`master-node-0`,
@@ -481,6 +481,15 @@ use_tailscale      = true
 tailscale_auth_key = var.tailscale_auth_key   # sensitive, from your tailnet
 extra_tls_sans     = ["master-node-0.tail1234.ts.net"]
 ```
+
+**Nodes without public addresses.** With `use_public_ipv4 = false` the nodes
+carry no public address at all, so the `master_nodes_ips` / `worker_nodes_ips`
+outputs are empty — they report public IPv4 addresses only. The reachable
+addresses are the tailnet ones, which Terraform never learns because Tailscale
+assigns them: read them from the tailnet (`tailscale status`) and use the
+`master-node-N` / `worker-node-N` MagicDNS names. Anything you point `kubectl`
+at over the tailnet has to be in `extra_tls_sans`. Details in
+[Operations §6.1](06-operations.md#61-accessing-the-cluster).
 
 > **The auth key is rendered into `user_data`.** Anyone who can read a server's
 > cloud-init through the Hetzner API, or read the Terraform state, can join

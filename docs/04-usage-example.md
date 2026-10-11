@@ -172,14 +172,30 @@ Tailscale's direct peer connections on every node, regardless of this flag;
 without it Tailscale still connects, but through DERP relays. See
 [Architecture §2.8](02-architecture.md#28-tailscale).
 
+This is also the configuration to use when the nodes have **no public IP
+addresses** (`use_public_ipv4 = false`, `use_public_ipv6 = false`). The
+`master_nodes_ips` / `worker_nodes_ips` outputs are then empty — they carry
+public IPv4 addresses only — so read the node addresses from the tailnet with
+`tailscale status` and address them by their MagicDNS names. See
+[Operations §6.1](06-operations.md#61-accessing-the-cluster).
+
 ## 4.4 Run it
 
 ```bash
 cd examples/basic
 
+# Hetzner Cloud provider
 export HCLOUD_TOKEN="…"
 export TF_VAR_hcloud_token="$HCLOUD_TOKEN"
 export TF_VAR_ssh_public_key="$(cat ~/.ssh/id_ed25519.pub)"
+
+# Tailscale (only with use_tailscale = true)
+# export TF_VAR_tailscale_auth_key="tskey-auth-…"
+
+# AWS, only when the root module uses the S3 backend
+# export AWS_ACCESS_KEY_ID="AKIA…"
+# export AWS_SECRET_ACCESS_KEY="…"
+# export AWS_REGION="eu-central-1"
 
 terraform init
 terraform apply
