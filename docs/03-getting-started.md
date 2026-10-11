@@ -10,7 +10,7 @@ a running cluster.
 | [Terraform](https://developer.hashicorp.com/terraform) ≥ 1.15.0 | Runs the module (`check` blocks and `optional()` object attributes) |
 | [Hetzner Cloud](https://console.hetzner.cloud/) project + **API token** | Target infrastructure |
 | Your own SSH **public** key, *or* a key already in the project | Authorised for the `cluster` user on every node (`ssh_public_key` / `ssh_keys`) |
-| AWS S3 bucket (recommended) | Remote Terraform state — Hetzner has no native backend |
+| AWS S3 bucket + **AWS credentials** (recommended) | Remote Terraform state — Hetzner has no native backend. See [§3.2](#32-provider-and-backend) |
 | A Tailscale **auth key** (optional) | Only when `use_tailscale = true` — joins the nodes to your tailnet and enables Tailscale SSH |
 
 ### Create the Hetzner API token
@@ -72,7 +72,7 @@ console and pass it in:
 
 ```hcl
 use_tailscale      = true
-tailscale_auth_key = var.tailscale_auth_key   # keep it sensitive
+tailscale_auth_key = var.tailscale_auth_key   # set TF_VAR_tailscale_auth_key, keep it sensitive
 extra_tls_sans     = ["master-node-0.tail1234.ts.net"]   # if kubectl goes over the tailnet
 ```
 
@@ -81,6 +81,44 @@ Every node joins as `master-node-N` / `worker-node-N` with `--ssh`, so
 allow it. The key ends up in the nodes' `user_data` and in the Terraform state —
 give it a short expiry and rotate it after the apply. Details in
 [Architecture §2.8](02-architecture.md#28-tailscale).
+
+This is the only way to reach nodes that have **no public IP addresses**
+(`use_public_ipv4 = false`, `use_public_ipv6 = false`): `terraform output
+master_nodes_ips` returns empty strings, because it reports public IPv4
+addresses only. Read the node addresses off the tailnet with `tailscale status`
+and use the MagicDNS names. See
+[Operations §6.1](06-operations.md#61-accessing-the-cluster).
+
+### Environment variables
+
+Secrets are conventionally passed to Terraform through the environment rather
+than committed to a `.tfvars` file. The full set this module needs:
+
+| Variable | Read by | Purpose |
+| --- | --- | --- |
+| `HCLOUD_TOKEN` | the `hcloud` provider | Hetzner Cloud API token. Picked up automatically when `provider "hcloud"` sets no `token`; otherwise pass `token = var.hcloud_token` and set `TF_VAR_hcloud_token` |
+| `TF_VAR_hcloud_token` | your root module | The same token, for the `token = var.hcloud_token` form above |
+| `TF_VAR_ssh_public_key` | the module (via your root module) | Your public key, when you do not read it from a file in the configuration |
+| `TF_VAR_tailscale_auth_key` | the module (via your root module) | The Tailscale auth key. Only needed with `use_tailscale = true`, and `sensitive`, so Terraform keeps it out of plan output |
+| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | the `s3` backend | Credentials for the state bucket. Add `AWS_SESSION_TOKEN` for temporary STS credentials |
+| `AWS_REGION` / `AWS_DEFAULT_REGION` | the `s3` backend, `aws` CLI | Region of the state bucket, if the backend block does not pin `region` |
+| `AWS_PROFILE` | the `s3` backend, `aws` CLI | A named profile in `~/.aws/credentials` to use instead of the access-key variables |
+
+```bash
+export HCLOUD_TOKEN="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+export TF_VAR_ssh_public_key="$(cat ~/.ssh/id_ed25519.pub)"
+export TF_VAR_tailscale_auth_key="tskey-auth-…"     # only with use_tailscale = true
+export AWS_ACCESS_KEY_ID="AKIA…"                     # only with the S3 backend
+export AWS_SECRET_ACCESS_KEY="…"
+export AWS_REGION="eu-central-1"
+```
+
+> **`TF_VAR_*` and child modules.** Terraform's `TF_VAR_` variables set inputs on
+> the **root** module only; they are not injected into a child module on their
+> own. `TF_VAR_tailscale_auth_key` reaches `hcloud-k8s-cluster` only if your root
+> module declares `variable "tailscale_auth_key"` and passes it down, as the
+> [usage example](04-usage-example.md#43-reaching-the-nodes-over-tailscale) does.
+> The same applies to `TF_VAR_ssh_public_key`.
 
 ## 3.2 Provider and backend
 
@@ -102,9 +140,11 @@ terraform {
 
   # Remote state in AWS S3 (Hetzner has no native state backend).
   backend "s3" {
-    bucket = "my-terraform-state"
-    key    = "hcloud-k8s-cluster/terraform.tfstate"
-    region = "eu-central-1"
+    bucket       = "my-terraform-state"
+    key          = "hcloud-k8s-cluster/terraform.tfstate"
+    region       = "eu-central-1"
+    encrypt      = true
+    use_lockfile = true   # S3-native locking; needs Terraform >= 1.10
   }
 }
 
@@ -119,6 +159,62 @@ provider "hcloud" {
 ```
 
 > The `examples/basic` directory ships a `versions.tf` you can use as a template.
+
+### The S3 state bucket and its AWS credentials
+
+Hetzner has no state backend of its own, so the state lives in an **AWS S3
+bucket**. Two things have to exist before `terraform init` can use it: the
+bucket, and credentials Terraform can read it with.
+
+**1. The bucket.** Its name is globally unique, and its region must match the
+`region` in the backend block — outside `us-east-1` the `LocationConstraint` is
+required. Versioning keeps a recoverable copy of every state revision and is
+worth turning on:
+
+```bash
+export AWS_REGION="eu-central-1"
+
+aws s3api create-bucket \
+  --bucket my-terraform-state \
+  --region "$AWS_REGION" \
+  --create-bucket-configuration LocationConstraint="$AWS_REGION"
+
+aws s3api put-bucket-versioning \
+  --bucket my-terraform-state \
+  --versioning-configuration Status=Enabled
+```
+
+**2. Credentials.** The S3 backend uses the standard AWS credential chain, so
+export an access key (an IAM role works too if you run from AWS):
+
+```bash
+export AWS_ACCESS_KEY_ID="AKIA…"
+export AWS_SECRET_ACCESS_KEY="…"
+# Only for temporary STS credentials:
+# export AWS_SESSION_TOKEN="…"
+# Or, instead of the two variables above:
+# export AWS_PROFILE="terraform"
+```
+
+The principal needs `s3:ListBucket` on the bucket and `s3:GetObject`,
+`s3:PutObject` and `s3:DeleteObject` on its objects. `terraform init` reads
+these credentials before it ever talks to Hetzner, so a `NoCredentialProviders`
+or `AccessDenied` error at `init` is an AWS problem, not a Hetzner one:
+
+```bash
+terraform init      # configures the provider and the S3 backend
+```
+
+> **State locking.** `use_lockfile = true` writes a lock object into the same
+> bucket, so no extra resource is needed. The older approach is a DynamoDB table
+> named in `dynamodb_table`; it still works but adds a table to manage. After
+> changing the backend block, re-run `terraform init` (or `init -reconfigure`).
+
+> **The state is a secret.** It holds `tailscale_auth_key`, the generated worker
+> private key and the k3s join token in clear text. Keep the bucket private,
+> enable encryption (bucket-side and `encrypt = true`), keep versioning on, and
+> restrict who can read it. Use a distinct `key` per environment so two clusters
+> never share a state file.
 
 ## 3.3 First apply
 

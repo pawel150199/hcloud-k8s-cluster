@@ -29,8 +29,11 @@ Full reference for the module's variables (`variables.tf`) and outputs
 | `k3s_version` | `string` | `"v1.36.4+k3s1"` | k3s release installed on every node |
 
 Nodes with neither public address family need another route for the k3s and
-package downloads their bootstrap makes — `use_tailscale`, or egress of your
-own.
+package downloads their bootstrap makes — a Tailscale exit node, a subnet/NAT,
+or egress of your own. Plain `use_tailscale` alone does not provide it: Tailscale
+only carries traffic between peers unless you route it out through an exit node.
+Without such a route the bootstrap cannot reach `get.k3s.io` or `apt`, and the
+nodes never come up. See [Operations §6.1](06-operations.md#61-accessing-the-cluster).
 
 ### Firewall
 
@@ -132,6 +135,14 @@ not a path and not a private key.
 | `control_plane_endpoint` | `string` | Address the agents join through: the API load balancer when the control plane is HA, otherwise the first master |
 | `control_plane_load_balancer_ipv4` | `string` | Public IPv4 of the API load balancer, or `null` when none is created |
 | `cluster_token` | `string` (sensitive) | k3s join token shared by every node — needed to add a node by hand outside Terraform |
+
+> **The `*_ips` outputs are public IPv4 only.** With `use_public_ipv4 = false`
+> they come back as empty strings (`["", ""]`, not the Tailscale or private
+> addresses), and `control_plane_load_balancer_ipv4` is `null` unless the load
+> balancer is public. Terraform never sees the nodes' Tailscale addresses — read
+> them from the tailnet instead (`tailscale status`, or the `master-node-N` /
+> `worker-node-N` MagicDNS names). See
+> [Operations §6.1](06-operations.md#61-accessing-the-cluster).
 
 The join token is marked `sensitive`, so read it with `-raw`:
 

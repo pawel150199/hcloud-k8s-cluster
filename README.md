@@ -21,6 +21,25 @@ module "hcloud_kubernetes_cluster" {
 }
 ```
 
+Before the first `terraform init`/`apply`, set the credentials the module and its
+state backend need:
+
+```bash
+export HCLOUD_TOKEN="…"                              # hcloud provider
+export TF_VAR_ssh_public_key="$(cat ~/.ssh/id_ed25519.pub)"
+export TF_VAR_tailscale_auth_key="tskey-auth-…"      # only with use_tailscale = true
+
+# AWS credentials for the S3 state backend (configured in your root module)
+export AWS_ACCESS_KEY_ID="AKIA…"
+export AWS_SECRET_ACCESS_KEY="…"
+export AWS_REGION="eu-central-1"
+```
+
+`TF_VAR_*` variables set inputs on the **root** module only, so they reach the
+module when your root module declares matching variables and passes them down.
+The S3 bucket and the AWS credential chain are covered in
+[Getting started](docs/03-getting-started.md#32-provider-and-backend).
+
 ## Documentation
 
 Full module documentation lives in [`docs/`](docs/index.md), with Mermaid

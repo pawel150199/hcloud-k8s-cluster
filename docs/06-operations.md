@@ -67,6 +67,53 @@ sudo ssh -i /root/.ssh/worker_node_key cluster@<worker_private_ip>
 > the one you pass with `-i`. Add `-o IdentitiesOnly=yes` if you are refused
 > with a key you know is authorised.
 
+### Nodes with no public IP addresses
+
+When `use_public_ipv4 = false` (and `use_public_ipv6 = false`), the nodes have
+only their **private subnet address** and, if `use_tailscale = true`, their
+**Tailscale address**. The `master_nodes_ips` and `worker_nodes_ips` outputs are
+then empty — they list public IPv4 addresses only — and there is no public
+address to `ssh` or `scp` to:
+
+```bash
+terraform output master_nodes_ips
+# tolist([
+#   "",
+# ])
+```
+
+Get the addresses from the tailnet instead. MagicDNS names are stable across a
+server replacement, so they are the ones to remember:
+
+```bash
+tailscale status                     # every node on the tailnet
+# or, filtered to this cluster:
+tailscale status | grep -E 'master-node|worker-node'
+
+ssh cluster@master-node-0            # Tailscale SSH, no public IP needed
+scp cluster@master-node-0:/etc/rancher/k3s/k3s.yaml ~/.kube/config
+```
+
+Only Tailscale's `100.x` addresses and MagicDNS names are reachable this way.
+The nodes' **private** addresses (`master_nodes_private_ips`,
+`worker_nodes_private_ips`) still exist, but they are routable only from inside
+the subnet.
+
+> **kubeconfig over a private-only control plane.** Point it at a Tailscale
+> address, not at `127.0.0.1`, and add that address to `extra_tls_sans` **before**
+> the apply so the API server certificate names it:
+>
+> ```bash
+> scp cluster@master-node-0:/etc/rancher/k3s/k3s.yaml ~/.kube/config
+> sed -i '' "s/127.0.0.1/master-node-0.tail1234.ts.net/" ~/.kube/config   # macOS sed
+> kubectl get nodes
+> ```
+>
+> Without public addresses the nodes also have no direct route to
+> `get.k3s.io` / `apt`, so the bootstrap needs egress that does not depend on
+> them — a Tailscale exit node, a subnet/NAT, or a public IPv6 address on the
+> nodes (`use_public_ipv6 = true`).
+
 ## 6.2 Verifying bootstrap
 
 ```bash
