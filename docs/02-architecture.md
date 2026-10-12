@@ -482,13 +482,18 @@ tailscale_auth_key = var.tailscale_auth_key   # sensitive, from your tailnet
 extra_tls_sans     = ["master-node-0.tail1234.ts.net"]
 ```
 
-**Nodes without public addresses.** With `use_public_ipv4 = false` the nodes
-carry no public address at all, so the `master_nodes_ips` / `worker_nodes_ips`
-outputs are empty — they report public IPv4 addresses only. The reachable
-addresses are the tailnet ones, which Terraform never learns because Tailscale
-assigns them: read them from the tailnet (`tailscale status`) and use the
-`master-node-N` / `worker-node-N` MagicDNS names. Anything you point `kubectl`
-at over the tailnet has to be in `extra_tls_sans`. Details in
+**Private-only access patterns.** If you set `use_public_ipv4 = false`, the
+nodes have no public address, so `master_nodes_ips` / `worker_nodes_ips`
+outputs are empty (they report public IPv4 addresses only). Note: when
+provisioning without public IPs, the VM must still reach the internet during
+cloud-init (to install packages and to join Tailscale). If your private network
+has no NAT gateway, this will fail. A practical alternative is to keep
+`use_public_ipv4 = true` and restrict inbound access to trusted IPs (or
+Tailscale's CGNAT range `100.64.0.0/10`) via `ssh_source_ips` and
+`kube_api_source_ips`. With either approach, reachable addresses over the
+tailnet are the `master-node-N` / `worker-node-N` MagicDNS names assigned by
+Tailscale (Terraform does not know them). Anything you point `kubectl` at over
+the tailnet must be included in `extra_tls_sans`. Details in
 [Operations §6.1](06-operations.md#61-accessing-the-cluster).
 
 > **The auth key is rendered into `user_data`.** Anyone who can read a server's

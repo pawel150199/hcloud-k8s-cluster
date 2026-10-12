@@ -20,10 +20,14 @@ module "hcloud_kubernetes_cluster" {
   worker_node_type = "cax11"
   node_location    = "fsn1"        # Falkenstein
 
-  # When both public address families are off, use Tailscale to keep a path to
-  # the nodes and the API (see 4.3).
+  # If you disable public IPs, cloud-init may have no outbound internet
+  # (e.g. no NAT gateway in the private network) which breaks package installs
+  # and the initial Tailscale join. A safe approach is to keep public IPv4
+  # enabled but restrict inbound to your trusted source IPs (or Tailscale's
+  # CGNAT range 100.64.0.0/10) via ssh_source_ips/kube_api_source_ips, and rely
+  # on Tailscale for remote access (see 4.3).
   use_public_ipv4 = true
-  use_public_ipv6 = true
+  use_public_ipv6 = false
 
   # Spreads the nodes over separate physical machines, so one host failure does
   # not take several nodes with it.
@@ -176,8 +180,12 @@ This is also the configuration to use when the nodes have **no public IP
 addresses** (`use_public_ipv4 = false`, `use_public_ipv6 = false`). The
 `master_nodes_ips` / `worker_nodes_ips` outputs are then empty — they carry
 public IPv4 addresses only — so read the node addresses from the tailnet with
-`tailscale status` and address them by their MagicDNS names. See
-[Operations §6.1](06-operations.md#61-accessing-the-cluster).
+`tailscale status` and address them by their MagicDNS names. Be aware: if you
+disable public IPs, your private network must provide outbound internet (e.g.
+via a NAT gateway) for cloud-init and the initial Tailscale join. If that isn't
+available, keep `use_public_ipv4 = true` and restrict inbound to trusted IPs (or
+Tailscale's `100.64.0.0/10`) using `ssh_source_ips` and `kube_api_source_ips`.
+See [Operations §6.1](06-operations.md#61-accessing-the-cluster).
 
 ## 4.4 Run it
 
